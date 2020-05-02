@@ -1,0 +1,12 @@
+Debug/
+Release/
+.vs/
+*.user
+*.dll
+*.obj
+*.exe
+*.lib
+*.pdb
+*.a
+*.so
+*.dylib
