@@ -15,7 +15,7 @@
 #define W_WIDTH_DEFAULT (1280)
 #define W_HEIGHT_DEFAULT (720)
 #define FRAMERATE_DEFAULT (60)
-#define BOARD_ROWS (20)
+#define BOARD_ROWS (10)
 #define BOARD_COLUMNS (10)
 
 /**
@@ -24,7 +24,7 @@
  *****************************
 */
 
-typedef enum {
+typedef enum _tetris_piece_shape {
 	SHAPE_L_REV = 0,
 	SHAPE_L,
 	SHAPE_I,
@@ -67,38 +67,43 @@ typedef enum _tetris_color {
 	COLOR_END
 } tetris_color_t;
 
+typedef enum _tetris_direction {
+	DIRECTION_HORIZONTAL,
+	DIRECTION_VERTICAL
+} tetris_direction_t;
+
 int g_tetris_colors[] = { 0x21d5dbff, 0xe8e225ff, 0xd10804ff, 0xce04d1ff };
 
-typedef struct {
+typedef struct _tetris_piece {
 	int color;
 	tetris_piece_shape_t shape;
 	int x, y;
 	int rotation_index;
 } tetris_piece_t;
 
-typedef struct {
+typedef struct _tetris_board {
 	int cells[BOARD_SIZE];
 	tetris_piece_t* current_piece;
 } tetris_board_t;
 
-typedef enum {
+typedef enum _tetris_event_kind {
 	EVENT_KEYDOWN,
 	EVENT_FOCUS_LOST,
 	EVENT_FOCUS_REGAIN
 } tetris_event_kind_t;
 
-typedef struct {
+typedef struct _tetris_event {
 	int64_t data;
 	tetris_event_kind_t kind;
 } tetris_event_t;
 
-typedef enum {
+typedef enum _tetris_state {
 	STATE_HALT,
 	STATE_RUNNING,
 	STATE_PAUSED
 } tetris_state_t;
 
-typedef struct {
+typedef struct _tetris_context {
 	int w_height, w_width;
 	SDL_Window* window;
 	SDL_Renderer* renderer;
@@ -161,7 +166,9 @@ void board_spawn_piece(tetris_board_t* board) {
 
 	piece->color = g_tetris_colors[random_number(COLOR_END)];
 	piece->shape = random_number(SHAPE_END);
-	piece->x = piece->y = piece->rotation_index = 0;
+	piece->x = 5;
+	piece->y = 5;
+	piece->rotation_index = 0;
 
 	board->current_piece = piece;
 }
@@ -292,6 +299,14 @@ int game_update(tetris_context_t* ctx) {
 						piece->y += 1;
 					}
 					break;
+				case SDLK_r:
+					if (piece->rotation_index == 3) {
+						piece->rotation_index = 0;
+					}
+					else {
+						piece->rotation_index += 1;
+					}
+					break;
 				default:
 					break;
 				}
@@ -323,35 +338,95 @@ int draw_existing_blocks(tetris_context_t* ctx) {
 	return 0;
 }
 
-int draw_current_piece(tetris_context_t* ctx) {
-	int bh, bw;
+int is_row_all_zeroes(const int* row, int count) {
+	int i;
+	for (i = 0; i < count; ++i) {
+		if (row[i] != 0) {
+			return 0;
+		}
+	}
+
+	return 1;
+}
+
+void draw_cell(tetris_context_t* ctx, SDL_Point base_coord, int offset, tetris_direction_t direction, int cell) {
+	if (cell == 0) {
+		return;
+	}
+
+	int bw, bh;
 
 	query_board_size(ctx, &bw, &bh);
 
-	const int cell_width  = bw / BOARD_COLUMNS;
+	const int cell_width = bw / BOARD_COLUMNS;
 	const int cell_height = bh / BOARD_ROWS;
 
-	int* shape_data = g_tetris_shape_table[ctx->board.current_piece->shape];
-
 	SDL_Rect rect;
+
 	rect.h = cell_height;
 	rect.w = cell_width;
 
-	int x;
-	for (x = 0; x < 4; ++x) {
-		int y;
-		for (y = 0; y < 2; ++y) {
-			int index = y * 4 + x;
-			if (shape_data[index]) {
-				rect.x = cell_width * (ctx->board.current_piece->x + x);
-				rect.y = cell_height * (ctx->board.current_piece->y + y);
+	rect.x = base_coord.x * cell_width;
+	rect.y = base_coord.y * cell_height;
 
-				set_draw_color(ctx->renderer, ctx->board.current_piece->color);
+	if (direction == DIRECTION_HORIZONTAL) {
+		rect.x += offset * cell_width;
+	}
+	else {
+		rect.y += offset * cell_height;
+	}
 
-				SDL_RenderFillRect(ctx->renderer, &rect);
-			}
+	SDL_RenderFillRect(ctx->renderer, &rect);
+}
+
+void draw_piece_row(tetris_context_t *ctx, tetris_piece_t *piece, int offset, SDL_Point coord, tetris_direction_t direction, int reverse) {
+	const int* data = g_tetris_shape_table[piece->shape];
+
+	set_draw_color(ctx->renderer, piece->color);
+
+	int pixel_offset = 0;
+	int i;
+
+	if (reverse) {
+		for (i = 3; i >= 0; --i) {
+			draw_cell(ctx, coord, pixel_offset++, direction, data[offset + i]);
 		}
 	}
+	else {
+		for (i = 0; i < 4; ++i) {
+			draw_cell(ctx, coord, pixel_offset++, direction, data[offset + i]);
+		}
+	}
+}
+
+int draw_current_piece(tetris_context_t* ctx) {
+	const tetris_piece_t* piece = ctx->board.current_piece;
+
+	if (piece == NULL) {
+		return 0;
+	}
+
+	const int* shape_data = g_tetris_shape_table[ctx->board.current_piece->shape];
+
+	tetris_direction_t direction = piece->rotation_index % 2 == 0 ? DIRECTION_HORIZONTAL : DIRECTION_VERTICAL;
+
+	int col_reverse = piece->rotation_index != 0 && piece->rotation_index != 3;
+	int row_reverse = piece->rotation_index > 1;
+
+	SDL_Point coord;
+	coord.x = piece->x;
+	coord.y = piece->y;
+
+	draw_piece_row(ctx, piece, col_reverse ? 4 : 0, coord, direction, row_reverse);
+
+	if (direction == DIRECTION_HORIZONTAL) {
+		coord.y += 1;
+	}
+	else {
+		coord.x += 1;
+	}
+
+	draw_piece_row(ctx, piece, col_reverse ? 0 : 4, coord, direction, row_reverse);
 
 	return 0;
 }
