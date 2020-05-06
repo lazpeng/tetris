@@ -342,12 +342,7 @@ int game_update(tetris_context_t* ctx) {
 					}
 					break;
 				case SDLK_r:
-					if (piece->rotation_index == 3) {
-						piece->rotation_index = 0;
-					}
-					else {
-						piece->rotation_index += 1;
-					}
+					piece->rotation_index = (piece->rotation_index + 1) % 4;
 					break;
 				default:
 					break;
@@ -487,8 +482,6 @@ SDL_Texture* create_piece_texture(tetris_context_t* ctx, const tetris_piece_t *p
 	if (out_dimensions != NULL) {
 		out_dimensions->w = texture_w;
 		out_dimensions->h = texture_h;
-		out_dimensions->x = piece->x * block_width;
-		out_dimensions->y = piece->y * block_height;
 	}
 
 	return texture;
@@ -501,6 +494,13 @@ int draw_current_piece(tetris_context_t* ctx) {
 		return 0;
 	}
 
+	double w, h;
+
+	query_board_size(ctx, &w, &h);
+
+	const double block_width = w / BOARD_COLUMNS;
+	const double block_height = h / BOARD_ROWS;
+
 	if (piece->texture == NULL) {
 		piece->texture = create_piece_texture(ctx, piece, &piece->texture_rect);
 
@@ -509,6 +509,9 @@ int draw_current_piece(tetris_context_t* ctx) {
 			return 3;
 		}
 	}
+
+	piece->texture_rect.x = piece->x * block_width;
+	piece->texture_rect.y = piece->y * block_height;
 
 	SDL_SetRenderTarget(ctx->renderer, piece->texture);
 	SDL_SetRenderDrawColor(ctx->renderer, 0, 0, 0, SDL_ALPHA_TRANSPARENT);
@@ -520,13 +523,17 @@ int draw_current_piece(tetris_context_t* ctx) {
 	// Reset back to window
 	SDL_SetRenderTarget(ctx->renderer, NULL);
 
-	const double rotation = 90.0 * piece->rotation_index;
+	double rotation = 90.0 * piece->rotation_index;
+
+	if (piece->shape == SHAPE_O) {
+		rotation = 0;
+	}
 
 	SDL_FRect rotation_point;
 	rotation_point.w = piece->texture_rect.w;
 	rotation_point.h = piece->texture_rect.h;
 	rotation_point.x = piece->texture_rect.w / 2;
-	rotation_point.y = piece->texture_rect.h / 2 + piece->texture_rect.h / 4;
+	rotation_point.y = piece->texture_rect.h * 3 / 4;
 
 	SDL_RenderCopyExF(ctx->renderer, piece->texture, NULL, &piece->texture_rect, rotation, &rotation_point, SDL_FLIP_NONE);
 
@@ -655,6 +662,7 @@ int main(int argc, char** argv) {
 
 	if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
 		puts("Failed to initialize SDL");
+		puts(SDL_GetError());
 		return EXIT_FAILURE;
 	}
 
@@ -662,6 +670,7 @@ int main(int argc, char** argv) {
 
 	if (TTF_Init() != 0) {
 		puts("Failed to initialize SDL_TTF");
+		puts(TTF_GetError());
 		SDL_Quit();
 		return EXIT_FAILURE;
 	}
