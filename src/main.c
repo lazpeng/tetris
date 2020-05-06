@@ -15,8 +15,11 @@
 #define W_WIDTH_DEFAULT (1280)
 #define W_HEIGHT_DEFAULT (720)
 #define FRAMERATE_DEFAULT (60)
-#define BOARD_ROWS (10)
-#define BOARD_COLUMNS (10)
+#define BOARD_OFFSET (1)
+#define BOARD_ROWS (22)
+#define BOARD_COLUMNS (12)
+#define DARK_AMOUNT (0.25)
+#define FONT_NAME (".\\font.ttf")
 
 /**
  *****************************
@@ -64,7 +67,8 @@ typedef enum _tetris_color {
 	COLOR_YELLOW,
 	COLOR_RED,
 	COLOR_MAGENTA,
-	COLOR_END
+	COLOR_NONE,
+	COLOR_GREY,
 } tetris_color_t;
 
 typedef enum _tetris_direction {
@@ -72,13 +76,15 @@ typedef enum _tetris_direction {
 	DIRECTION_VERTICAL
 } tetris_direction_t;
 
-int g_tetris_colors[] = { 0x21d5dbff, 0xe8e225ff, 0xd10804ff, 0xce04d1ff };
+int g_tetris_colors[] = { 0x21d5db, 0xe8e225, 0xd10804, 0xce04d1, 0x333333, 0x777777 };
 
 typedef struct _tetris_piece {
 	int color;
 	tetris_piece_shape_t shape;
 	int x, y;
 	int rotation_index;
+	SDL_Texture* texture;
+	SDL_FRect texture_rect;
 } tetris_piece_t;
 
 typedef struct _tetris_board {
@@ -113,6 +119,7 @@ typedef struct _tetris_context {
 	int event_stack_top;
 	tetris_board_t board;
 	double last_frame_duration;
+	TTF_Font* font;
 } tetris_context_t;
 
 typedef int (*game_loop_fn_t) (tetris_context_t*);
@@ -122,21 +129,34 @@ typedef int (*game_loop_fn_t) (tetris_context_t*);
  * Helpers
  *****************************
 */
-static int random_number(int upper_limit) {
+int random_number(int upper_limit) {
 	srand(time(NULL));
 
 	return rand() % upper_limit;
 }
 
-static int set_draw_color(SDL_Renderer* renderer, int color) {
-	int r, g, b, a;
+int set_draw_color(SDL_Renderer* renderer, int color) {
+	int r, g, b;
 
-	a = color & 0xFF;
-	b = (color >> 8) & 0xFF;
-	g = (color >> 16) & 0xFF;
-	r = (color >> 24) & 0xFF;
+	b = color & 0xFF;
+	g = (color >> 8) & 0xFF;
+	r = (color >> 16) & 0xFF;
 
-	SDL_SetRenderDrawColor(renderer, r, g, b, a);
+	SDL_SetRenderDrawColor(renderer, r, g, b, SDL_ALPHA_OPAQUE);
+}
+
+int darken_color(int color, double amount) {
+	int r, g, b;
+
+	b = (color >> 0)  & 0xFF;
+	g = (color >> 8)  & 0xFF;
+	r = (color >> 16) & 0xFF;
+
+	r = (double)r * (1 - amount);
+	g = (double)g * (1 - amount);
+	b = (double)b * (1 - amount);
+
+	return (r << 16) | (g << 8) | r;
 }
 
 /**
@@ -146,12 +166,30 @@ static int set_draw_color(SDL_Renderer* renderer, int color) {
 */
 
 void board_initialize(tetris_board_t* board) {
-	memset(board->cells, 0, sizeof(board));
 	board->current_piece = NULL;
+
+	int grey_bg = g_tetris_colors[COLOR_NONE];
+	int grey = g_tetris_colors[COLOR_GREY];
+
+	int i;
+	for (i = 0; i < BOARD_ROWS; ++i) {
+		int j;
+		for (j = 0; j < BOARD_COLUMNS; ++j) {
+			if (j != 0 && j != BOARD_COLUMNS - 1 && i != 0 && i != BOARD_ROWS - 1) {
+				board->cells[i * BOARD_COLUMNS + j] = grey_bg;
+			}
+			else {
+				board->cells[i * BOARD_COLUMNS + j] = grey;
+			}
+		}
+	}
 }
 
 void board_destroy(tetris_board_t* board) {
 	if (board->current_piece != NULL) {
+		if (board->current_piece->texture != NULL) {
+			SDL_DestroyTexture(board->current_piece->texture);
+		}
 		free(board->current_piece);
 	}
 }
@@ -164,11 +202,12 @@ void board_spawn_piece(tetris_board_t* board) {
 
 	tetris_piece_t* piece = calloc(1, sizeof(*piece));
 
-	piece->color = g_tetris_colors[random_number(COLOR_END)];
+	piece->color = g_tetris_colors[random_number(COLOR_NONE)];
 	piece->shape = random_number(SHAPE_END);
 	piece->x = 5;
 	piece->y = 5;
 	piece->rotation_index = 0;
+	piece->texture = NULL;
 
 	board->current_piece = piece;
 }
@@ -203,10 +242,13 @@ tetris_context_t* context_create(void) {
 		}
 	}
 
+	SDL_SetRenderDrawBlendMode(ctx->renderer, SDL_BLENDMODE_BLEND);
+
 	ctx->target_framerate = FRAMERATE_DEFAULT;
 	ctx->event_stack_top = 0;
 	ctx->game_state = STATE_HALT;
 	ctx->last_frame_duration = 0;
+	ctx->font = NULL;
 
 	board_initialize(&ctx->board);
 
@@ -324,114 +366,200 @@ int game_update(tetris_context_t* ctx) {
  *****************************
 */
 
-void query_board_size(tetris_context_t* ctx, int* width, int* height) {
+void query_board_size(tetris_context_t* ctx, double* width, double* height) {
+	const double vert_region = ctx->w_height;
+	const double hori_region = vert_region * ((double)BOARD_COLUMNS / (double)BOARD_ROWS);
+
 	if (height != NULL) {
-		*height = ctx->w_height;
+		*height = vert_region;
 	}
 
 	if (width != NULL) {
-		*width = ctx->w_width * 0.60;
+		*width = hori_region;
 	}
 }
 
-int draw_existing_blocks(tetris_context_t* ctx) {
-	return 0;
-}
-
-int is_row_all_zeroes(const int* row, int count) {
-	int i;
-	for (i = 0; i < count; ++i) {
-		if (row[i] != 0) {
-			return 0;
-		}
-	}
-
-	return 1;
-}
-
-void draw_cell(tetris_context_t* ctx, SDL_Point base_coord, int offset, tetris_direction_t direction, int cell) {
-	if (cell == 0) {
-		return;
-	}
-
-	int bw, bh;
+int draw_single_block(tetris_context_t* ctx, int x, int y, int color) {
+	double bw, bh;
 
 	query_board_size(ctx, &bw, &bh);
 
-	const int cell_width = bw / BOARD_COLUMNS;
-	const int cell_height = bh / BOARD_ROWS;
+	const double cell_width = bw / BOARD_COLUMNS;
+	const double cell_height = bh / BOARD_ROWS;
 
-	SDL_Rect rect;
+	SDL_FRect rect;
 
 	rect.h = cell_height;
 	rect.w = cell_width;
+	rect.x = x * cell_width;
+	rect.y = y * cell_height;
 
-	rect.x = base_coord.x * cell_width;
-	rect.y = base_coord.y * cell_height;
+	const int inner_color = darken_color(color, DARK_AMOUNT);
 
-	if (direction == DIRECTION_HORIZONTAL) {
-		rect.x += offset * cell_width;
-	}
-	else {
-		rect.y += offset * cell_height;
-	}
+	set_draw_color(ctx->renderer, color);
+	SDL_RenderFillRectF(ctx->renderer, &rect);
 
-	SDL_RenderFillRect(ctx->renderer, &rect);
+	set_draw_color(ctx->renderer, inner_color);
+	SDL_RenderDrawRectF(ctx->renderer, &rect);
+
+	return 0;
 }
 
-void draw_piece_row(tetris_context_t *ctx, tetris_piece_t *piece, int offset, SDL_Point coord, tetris_direction_t direction, int reverse) {
-	const int* data = g_tetris_shape_table[piece->shape];
+int draw_existing_blocks(tetris_context_t* ctx) {
+	int i, x = 0, y = 0;
+	int status_code = 0;
+	for (int i = 0; i < BOARD_SIZE; ++i) {
+		if (x % BOARD_COLUMNS == 0 && i > 0) {
+			y += 1;
+			x = 0;
+		}
 
-	set_draw_color(ctx->renderer, piece->color);
+		status_code = draw_single_block(ctx, x, y, ctx->board.cells[i]);
+		if (status_code != 0) {
+			break;
+		}
 
-	int pixel_offset = 0;
+		x += 1;
+	}
+
+	return status_code;
+}
+
+int sum_row(const int* row) {
+	int i, sum = 0;
+	for (i = 0; i < 4; ++i) {
+		sum += row[i];
+	}
+
+	return sum;
+}
+
+int draw_piece_row(tetris_context_t* ctx, tetris_piece_t* piece, int row) {
+	int status_code = 0;
+
+	const int* shape = g_tetris_shape_table[piece->shape];
+
+	const int offset = row * 4;
+
+	if (sum_row(shape + offset) == 0) {
+		return;
+	}
+
 	int i;
+	for (i = 0; i < 4; ++i) {
+		if(shape[offset + i]) {
+			status_code = draw_single_block(ctx, i, row, piece->color);
+			if (status_code != 0) {
+				puts("An error occurred when drawing the piece");
+				break;
+			}
+		}
+	}
 
-	if (reverse) {
-		for (i = 3; i >= 0; --i) {
-			draw_cell(ctx, coord, pixel_offset++, direction, data[offset + i]);
+	return status_code;
+}
+
+SDL_Texture* create_piece_texture(tetris_context_t* ctx, const tetris_piece_t *piece, SDL_FRect *out_dimensions) {
+	double w, h;
+
+	query_board_size(ctx, &w, &h);
+
+	const double block_width = w / BOARD_COLUMNS;
+	const double block_height = h / BOARD_ROWS;
+
+	const int* shape_data = g_tetris_shape_table[piece->shape];
+
+	const int height = !!(sum_row(shape_data) != 0) + !!(sum_row(shape_data + 4) != 0);
+
+	int width = 0, i;
+	for (i = 0; i < 4; ++i) {
+		if (shape_data[i] || shape_data[i + 4]) {
+			width += 1;
 		}
 	}
-	else {
-		for (i = 0; i < 4; ++i) {
-			draw_cell(ctx, coord, pixel_offset++, direction, data[offset + i]);
-		}
+
+	const int texture_w = block_width * width, texture_h = block_height * height;
+
+	SDL_Texture* texture = SDL_CreateTexture(ctx->renderer, SDL_PIXELFORMAT_ARGB32, SDL_TEXTUREACCESS_TARGET, texture_w, texture_h);
+
+	SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+
+	if (out_dimensions != NULL) {
+		out_dimensions->w = texture_w;
+		out_dimensions->h = texture_h;
+		out_dimensions->x = piece->x * block_width;
+		out_dimensions->y = piece->y * block_height;
 	}
+
+	return texture;
 }
 
 int draw_current_piece(tetris_context_t* ctx) {
-	const tetris_piece_t* piece = ctx->board.current_piece;
+	tetris_piece_t* piece = ctx->board.current_piece;
 
 	if (piece == NULL) {
 		return 0;
 	}
 
-	const int* shape_data = g_tetris_shape_table[ctx->board.current_piece->shape];
+	if (piece->texture == NULL) {
+		piece->texture = create_piece_texture(ctx, piece, &piece->texture_rect);
 
-	tetris_direction_t direction = piece->rotation_index % 2 == 0 ? DIRECTION_HORIZONTAL : DIRECTION_VERTICAL;
-
-	int col_reverse = piece->rotation_index != 0 && piece->rotation_index != 3;
-	int row_reverse = piece->rotation_index > 1;
-
-	SDL_Point coord;
-	coord.x = piece->x;
-	coord.y = piece->y;
-
-	draw_piece_row(ctx, piece, col_reverse ? 4 : 0, coord, direction, row_reverse);
-
-	if (direction == DIRECTION_HORIZONTAL) {
-		coord.y += 1;
-	}
-	else {
-		coord.x += 1;
+		if (piece->texture == NULL) {
+			puts("Failed to create texture for piece");
+			return 3;
+		}
 	}
 
-	draw_piece_row(ctx, piece, col_reverse ? 0 : 4, coord, direction, row_reverse);
+	SDL_SetRenderTarget(ctx->renderer, piece->texture);
+	SDL_SetRenderDrawColor(ctx->renderer, 0, 0, 0, SDL_ALPHA_TRANSPARENT);
+	SDL_RenderFillRect(ctx->renderer, NULL);
+
+	draw_piece_row(ctx, piece, 0);
+	draw_piece_row(ctx, piece, 1);
+
+	// Reset back to window
+	SDL_SetRenderTarget(ctx->renderer, NULL);
+
+	const double rotation = 90.0 * piece->rotation_index;
+
+	SDL_FRect rotation_point;
+	rotation_point.w = piece->texture_rect.w;
+	rotation_point.h = piece->texture_rect.h;
+	rotation_point.x = piece->texture_rect.w / 2;
+	rotation_point.y = piece->texture_rect.h / 2 + piece->texture_rect.h / 4;
+
+	SDL_RenderCopyExF(ctx->renderer, piece->texture, NULL, &piece->texture_rect, rotation, &rotation_point, SDL_FLIP_NONE);
 
 	return 0;
 }
 
 int draw_score(tetris_context_t* ctx) {
+	double bw, bh;
+
+	query_board_size(ctx, &bw, &bh);
+
+	if (ctx->font == NULL) {
+		ctx->font = TTF_OpenFont(FONT_NAME, 24);
+
+		if (ctx->font == NULL) {
+			puts(TTF_GetError());
+			return -1;
+		}
+	}
+
+	SDL_Color color = { 255, 255, 255 };
+
+	SDL_Surface* surface = TTF_RenderText_Solid(ctx->font, "FUCK MEEEEEEEEEEEEEEEEEE", color);
+
+	SDL_Texture* text_texture = SDL_CreateTextureFromSurface(ctx->renderer, surface);
+
+	SDL_FRect dst;
+	dst.h = 100;
+	dst.w = 1000;
+	dst.x = bw + 20;
+	dst.y = 50;
+
+	SDL_RenderCopyF(ctx->renderer, text_texture, NULL, &dst);
 
 	return 0;
 }
@@ -477,7 +605,7 @@ void game_update_title(tetris_context_t* ctx) {
 }
 
 int game_run(tetris_context_t* ctx) {
-	int status_code;
+	int status_code, quit = 0;
 
 	const int target_ticks = (1000 / ctx->target_framerate);
 
@@ -493,6 +621,7 @@ int game_run(tetris_context_t* ctx) {
 			game_loop_fn_t fun = game_loop_functions[i];
 			status_code = fun(ctx);
 			if (status_code != 0) {
+				quit = 1;
 				break;
 			}
 		}
@@ -507,7 +636,7 @@ int game_run(tetris_context_t* ctx) {
 		ctx->last_frame_duration = elapsed / 1000.0;
 
 		game_update_title(ctx);
-	} while (1);
+	} while (!quit);
 
 	return status_code;
 }
@@ -526,6 +655,14 @@ int main(int argc, char** argv) {
 
 	if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
 		puts("Failed to initialize SDL");
+		return EXIT_FAILURE;
+	}
+
+	puts("Initializing SDL_TTF...");
+
+	if (TTF_Init() != 0) {
+		puts("Failed to initialize SDL_TTF");
+		SDL_Quit();
 		return EXIT_FAILURE;
 	}
 
