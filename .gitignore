@@ -1,6 +1,8 @@
 Debug/
 Release/
 .vs/
+cmake-build-debug/
+.idea/
 *.user
 *.dll
 *.obj

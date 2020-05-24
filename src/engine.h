@@ -6,17 +6,15 @@
 #define BOARD_WIDTH (10)
 #define BOARD_SIZE (BOARD_HEIGHT * BOARD_WIDTH)
 #define EVENT_STACK_SIZE (128)
-#define LAST_ROTATION (3)
 #define W_WIDTH_DEFAULT (1280)
 #define W_HEIGHT_DEFAULT (720)
 #define FRAMERATE_DEFAULT (60)
-#define BOARD_OFFSET (1)
 #define BOARD_ROWS (22)
 #define BOARD_COLUMNS (12)
 #define DARK_AMOUNT (0.25)
-#define FONT_NAME (".\\font.ttf")
+#define FONT_NAME ("..\\font.ttf")
 
-typedef struct _tetris_shape_info {
+typedef struct {
 	int width, height;
 	int* data;
 } tetris_shape_info_t;
@@ -28,7 +26,7 @@ typedef struct SDL_Window SDL_Window;
 typedef struct SDL_Renderer SDL_Renderer;
 typedef struct _TTF_Font TTF_Font;
 
-typedef enum _tetris_shape_kind {
+typedef enum {
 	SHAPE_L_REV = 0,
 	SHAPE_L,
 	SHAPE_I,
@@ -39,7 +37,7 @@ typedef enum _tetris_shape_kind {
 	SHAPE_END
 } tetris_shape_kind_t;
 
-typedef enum _tetris_color {
+typedef enum {
 	COLOR_CYAN = 0,
 	COLOR_YELLOW,
 	COLOR_RED,
@@ -48,7 +46,7 @@ typedef enum _tetris_color {
 	COLOR_GREY,
 } tetris_color_t;
 
-typedef struct _tetris_piece {
+typedef struct {
 	int color;
 	tetris_shape_kind_t shape;
 	int x, y;
@@ -56,29 +54,29 @@ typedef struct _tetris_piece {
 	int *draw_data;
 } tetris_piece_t;
 
-typedef struct _tetris_board {
+typedef struct {
 	int cells[BOARD_SIZE];
 	tetris_piece_t* current_piece;
 } tetris_board_t;
 
-typedef enum _tetris_event_kind {
+typedef enum {
 	EVENT_KEYDOWN,
 	EVENT_FOCUS_LOST,
 	EVENT_FOCUS_REGAIN
 } tetris_event_kind_t;
 
-typedef struct _tetris_event {
+typedef struct {
 	int64_t data;
 	tetris_event_kind_t kind;
 } tetris_event_t;
 
-typedef enum _tetris_state {
+typedef enum {
 	STATE_HALT,
 	STATE_RUNNING,
 	STATE_PAUSED
 } tetris_state_t;
 
-typedef struct _tetris_context {
+typedef struct {
 	int w_height, w_width;
 	SDL_Window* window;
 	SDL_Renderer* renderer;
@@ -108,9 +106,9 @@ struct SDL_Renderer;
 
 int random_number(int upper_limit);
 
-int set_draw_color(SDL_Renderer* renderer, int color);
+int set_draw_color(SDL_Renderer* renderer, uint32_t color);
 
-int darken_color(int color, double amount);
+int darken_color(uint32_t color, double amount);
 
 int game_draw(tetris_context_t* ctx);
 

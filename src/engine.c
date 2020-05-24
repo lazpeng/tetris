@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
+#include <stdint.h>
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
@@ -54,7 +56,7 @@ int random_number(int upper_limit) {
 	return rand() % upper_limit;
 }
 
-int set_draw_color(SDL_Renderer* renderer, int color) {
+int set_draw_color(SDL_Renderer* renderer, uint32_t color) {
 	int r, g, b;
 
 	b = color & 0xFF;
@@ -62,10 +64,11 @@ int set_draw_color(SDL_Renderer* renderer, int color) {
 	r = (color >> 16) & 0xFF;
 
 	SDL_SetRenderDrawColor(renderer, r, g, b, SDL_ALPHA_OPAQUE);
+	return 0;
 }
 
-int darken_color(int color, double amount) {
-	int r, g, b;
+int darken_color(uint32_t color, double amount) {
+	uint32_t r, g, b;
 
 	b = (color >> 0) & 0xFF;
 	g = (color >> 8) & 0xFF;
@@ -75,16 +78,7 @@ int darken_color(int color, double amount) {
 	g = (double)g * (1 - amount);
 	b = (double)b * (1 - amount);
 
-	return (r << 16) | (g << 8) | r;
-}
-
-int sum_row(const int* row) {
-	int i, sum = 0;
-	for (i = 0; i < 4; ++i) {
-		sum += row[i];
-	}
-
-	return sum;
+	return (r << 16) | (g << 8) | b;
 }
 
 void board_initialize(tetris_board_t* board) {
@@ -148,7 +142,7 @@ tetris_context_t* context_create(void) {
 	if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
 		puts("Failed to initialize SDL");
 		puts(SDL_GetError());
-		return EXIT_FAILURE;
+		return NULL;
 	}
 
 	puts("Initializing SDL_TTF...");
@@ -157,7 +151,7 @@ tetris_context_t* context_create(void) {
 		puts("Failed to initialize SDL_TTF");
 		puts(TTF_GetError());
 		SDL_Quit();
-		return EXIT_FAILURE;
+		return NULL;
 	}
 
 	puts("Initializing context...");
@@ -239,26 +233,24 @@ int game_collect_events(tetris_context_t* ctx) {
 		switch (e.type) {
 		case SDL_KEYDOWN:
 			return game_push_event(ctx, EVENT_KEYDOWN, e.key.keysym.sym);
-			break;
 		case SDL_WINDOWEVENT_FOCUS_GAINED:
 		case SDL_WINDOWEVENT_RESTORED:
 			return game_push_event(ctx, EVENT_FOCUS_REGAIN, 0);
-			break;
 		case SDL_WINDOWEVENT_FOCUS_LOST:
 		case SDL_WINDOWEVENT_MINIMIZED:
 			return game_push_event(ctx, EVENT_FOCUS_LOST, 0);
-			break;
 		case SDL_WINDOWEVENT_MOVED:
-			SDL_GetWindowPosition(ctx->window, e.window.data1, e.window.data2);
+			SDL_SetWindowPosition(ctx->window, e.window.data1, e.window.data2);
 			break;
 		case SDL_WINDOWEVENT_CLOSE:
 		case SDL_QUIT:
-			puts("Game closing...");
 			return 1;
 		default:
 			return 0;
 		}
 	}
+
+	return 0;
 }
 
 void query_board_size(tetris_context_t* ctx, double* width, double* height) {
@@ -300,7 +292,7 @@ void draw_single_block(tetris_context_t* ctx, int x, int y, int color) {
 
 int draw_existing_blocks(tetris_context_t* ctx) {
 	int i, x = 0, y = 0;
-	for (int i = 0; i < BOARD_SIZE; ++i) {
+	for (i = 0; i < BOARD_SIZE; ++i) {
 		if (x % BOARD_COLUMNS == 0 && i > 0) {
 			y += 1;
 			x = 0;

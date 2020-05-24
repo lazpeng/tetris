@@ -51,7 +51,7 @@ int game_update(tetris_context_t* ctx) {
 }
 
 int start_game(void) {
-	int status_code = 0;
+	int status_code;
 
 	tetris_context_t* ctx = context_create();
 	while ((status_code = game_run(ctx, game_update)) == 0);
