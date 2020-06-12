@@ -98,12 +98,6 @@ typedef int (*game_loop_fn_t) (tetris_context_t*);
 */
 struct SDL_Renderer;
 
-/**
- *****************************
- * Helpers
- *****************************
-*/
-
 int random_number(int upper_limit);
 
 int set_draw_color(SDL_Renderer* renderer, uint32_t color);
@@ -112,7 +106,13 @@ int darken_color(uint32_t color, double amount);
 
 int game_draw(tetris_context_t* ctx);
 
-void rotate_piece(tetris_piece_t* piece);
+void game_rotate_piece(tetris_board_t* board);
+
+int board_get_cell(const tetris_board_t *board, int x, int y);
+
+void board_spawn_piece(tetris_board_t* board);
+
+void board_fixate_current_piece(tetris_board_t *board);
 
 int game_collect_events(tetris_context_t* ctx);
 

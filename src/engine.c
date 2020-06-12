@@ -110,6 +110,26 @@ void board_destroy(tetris_board_t* board) {
 	}
 }
 
+void board_fixate_current_piece(tetris_board_t *board) {
+    if(board->current_piece == NULL) {
+        return;
+    }
+
+    const tetris_piece_t * piece = board->current_piece;
+
+    int row;
+    for(row = 0; row < piece->h; ++row) {
+        int col;
+        for(col = 0; col < piece->w; ++col) {
+            if(piece->draw_data[row * piece->w + col] != 0) {
+                const int xpos = piece->x + col;
+                const int ypos = piece->y + row;
+                board->cells[ypos * BOARD_COLUMNS + xpos] = piece->color;
+            }
+        }
+    }
+}
+
 void board_spawn_piece(tetris_board_t* board) {
 	if (board->current_piece != NULL) {
 		free(board->current_piece);
@@ -290,6 +310,10 @@ void draw_single_block(tetris_context_t* ctx, int x, int y, int color) {
 	SDL_RenderDrawRectF(ctx->renderer, &rect);
 }
 
+int board_get_cell(const tetris_board_t *board, int x, int y) {
+    return board->cells[y * BOARD_COLUMNS + x];
+}
+
 int draw_existing_blocks(tetris_context_t* ctx) {
 	int i, x = 0, y = 0;
 	for (i = 0; i < BOARD_SIZE; ++i) {
@@ -324,7 +348,13 @@ int draw_current_piece(tetris_context_t* ctx) {
 	return 0;
 }
 
-void rotate_piece(tetris_piece_t* piece) {
+void game_rotate_piece(tetris_board_t* board) {
+    tetris_piece_t *piece = board->current_piece;
+
+    if(piece == NULL) {
+        return;
+    }
+
 	int* buffer = calloc(1, sizeof(int) * piece->w * piece->h);
 
 	const int* data = piece->draw_data;
@@ -362,17 +392,59 @@ int draw_score(tetris_context_t* ctx) {
 
 	SDL_Color color = { 255, 255, 255 };
 
-	SDL_Surface* surface = TTF_RenderText_Solid(ctx->font, "Supposed score", color);
+	SDL_Surface* surface = TTF_RenderText_Solid(ctx->font, "I SAAAAAAAAAAY", color);
 
 	SDL_Texture* text_texture = SDL_CreateTextureFromSurface(ctx->renderer, surface);
 
 	SDL_FRect dst;
-	dst.h = 100;
-	dst.w = 1000;
+	dst.h = 60;
+	dst.w = 700;
 	dst.x = bw + 20;
-	dst.y = 50;
+	dst.y = 10;
 
 	SDL_RenderCopyF(ctx->renderer, text_texture, NULL, &dst);
+
+	SDL_FreeSurface(surface);
+	SDL_DestroyTexture(text_texture);
+
+    surface = TTF_RenderText_Solid(ctx->font, "HEY            ", color);
+
+    text_texture = SDL_CreateTextureFromSurface(ctx->renderer, surface);
+
+    dst.h = 60;
+    dst.w = 700;
+    dst.x = bw + 20;
+    dst.y = 70;
+
+    SDL_RenderCopyF(ctx->renderer, text_texture, NULL, &dst);
+
+    SDL_FreeSurface(surface);
+    SDL_DestroyTexture(text_texture);
+
+    surface = TTF_RenderText_Solid(ctx->font, "HEY              ", color);
+
+    text_texture = SDL_CreateTextureFromSurface(ctx->renderer, surface);
+
+    dst.h = 60;
+    dst.w = 700;
+    dst.x = bw + 20;
+    dst.y = 130;
+
+    SDL_RenderCopyF(ctx->renderer, text_texture, NULL, &dst);
+
+    SDL_FreeSurface(surface);
+    SDL_DestroyTexture(text_texture);
+
+    surface = TTF_RenderText_Solid(ctx->font, "HEY START DASH        ", color);
+
+    text_texture = SDL_CreateTextureFromSurface(ctx->renderer, surface);
+
+    dst.h = 60;
+    dst.w = 700;
+    dst.x = bw + 20;
+    dst.y = 200;
+
+    SDL_RenderCopyF(ctx->renderer, text_texture, NULL, &dst);
 
 	return 0;
 }
