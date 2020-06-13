@@ -9,119 +9,115 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
 
-int g_tetris_colors[] = { 0x21d5db, 0xe8e225, 0xd10804, 0xce04d1, 0x333333, 0x777777 };
+int g_tetris_colors[] = {0x21d5db, 0xe8e225, 0xd10804, 0xce04d1, 0x333333, 0x777777};
 
 // *
 // ***
-static int g_shape_rev_l[] = { 1, 0, 0, 1, 1, 1 };
+static int g_shape_rev_l[] = {1, 0, 0, 1, 1, 1};
 
 //   *
 // ***
-static int g_shape_l[] = { 0, 0, 1, 1, 1, 1 };
+static int g_shape_l[] = {0, 0, 1, 1, 1, 1};
 
 // ****
 //
-static int g_shape_i[] = { 1, 1, 1, 1 };
+static int g_shape_i[] = {1, 1, 1, 1};
 
 // **
 // **
-static int g_shape_o[] = { 1, 1, 1, 1 };
+static int g_shape_o[] = {1, 1, 1, 1};
 
 //  **
 // **
-static int g_shape_s[] = { 0, 1, 1, 1, 1, 0 };
+static int g_shape_s[] = {0, 1, 1, 1, 1, 0};
 
 //  *
 // ***
-static int g_shape_t[] = { 0, 1, 0, 1, 1, 1 };
+static int g_shape_t[] = {0, 1, 0, 1, 1, 1};
 
 // **
 //  **
-static int g_shape_z[] = { 1, 1, 0, 0, 1, 1 };
+static int g_shape_z[] = {1, 1, 0, 0, 1, 1};
 
 tetris_shape_info_t g_tetris_shape_table[] =
-{
-	{ .width = 3, .height = 2, .data = g_shape_rev_l },
-	{ .width = 3, .height = 2, .data = g_shape_l },
-	{ .width = 4, .height = 1, .data = g_shape_i },
-	{ .width = 2, .height = 2, .data = g_shape_o },
-	{ .width = 3, .height = 2, .data = g_shape_s },
-	{ .width = 3, .height = 2, .data = g_shape_t },
-	{ .width = 3, .height = 2, .data = g_shape_z }
-};
+        {
+                {.width = 3, .height = 2, .data = g_shape_rev_l},
+                {.width = 3, .height = 2, .data = g_shape_l},
+                {.width = 4, .height = 1, .data = g_shape_i},
+                {.width = 2, .height = 2, .data = g_shape_o},
+                {.width = 3, .height = 2, .data = g_shape_s},
+                {.width = 3, .height = 2, .data = g_shape_t},
+                {.width = 3, .height = 2, .data = g_shape_z}
+        };
 
 int random_number(int upper_limit) {
-	srand(time(NULL));
+    srand(time(NULL));
 
-	return rand() % upper_limit;
+    return rand() % upper_limit;
 }
 
-int set_draw_color(SDL_Renderer* renderer, uint32_t color) {
-	int r, g, b;
+int set_draw_color(SDL_Renderer *renderer, uint32_t color) {
+    int r, g, b;
 
-	b = color & 0xFF;
-	g = (color >> 8) & 0xFF;
-	r = (color >> 16) & 0xFF;
+    b = color & 0xFF;
+    g = (color >> 8) & 0xFF;
+    r = (color >> 16) & 0xFF;
 
-	SDL_SetRenderDrawColor(renderer, r, g, b, SDL_ALPHA_OPAQUE);
-	return 0;
+    SDL_SetRenderDrawColor(renderer, r, g, b, SDL_ALPHA_OPAQUE);
+    return 0;
 }
 
 int darken_color(uint32_t color, double amount) {
-	uint32_t r, g, b;
+    uint32_t r, g, b;
 
-	b = (color >> 0) & 0xFF;
-	g = (color >> 8) & 0xFF;
-	r = (color >> 16) & 0xFF;
+    b = (color >> 0) & 0xFF;
+    g = (color >> 8) & 0xFF;
+    r = (color >> 16) & 0xFF;
 
-	r = (double)r * (1 - amount);
-	g = (double)g * (1 - amount);
-	b = (double)b * (1 - amount);
+    r = (double) r * (1 - amount);
+    g = (double) g * (1 - amount);
+    b = (double) b * (1 - amount);
 
-	return (r << 16) | (g << 8) | b;
+    return (r << 16) | (g << 8) | b;
 }
 
-void board_initialize(tetris_board_t* board) {
-	board->current_piece = NULL;
+void board_initialize(tetris_board_t *board) {
+    board->current_piece = NULL;
 
-	int grey_bg = g_tetris_colors[COLOR_NONE];
-	int grey = g_tetris_colors[COLOR_GREY];
-
-	int i;
-	for (i = 0; i < BOARD_ROWS; ++i) {
-		int j;
-		for (j = 0; j < BOARD_COLUMNS; ++j) {
-			if (j != 0 && j != BOARD_COLUMNS - 1 && i != 0 && i != BOARD_ROWS - 1) {
-				board->cells[i * BOARD_COLUMNS + j] = grey_bg;
-			}
-			else {
-				board->cells[i * BOARD_COLUMNS + j] = grey;
-			}
-		}
-	}
+    int i;
+    for (i = 0; i < BOARD_ROWS; ++i) {
+        int j;
+        for (j = 0; j < BOARD_COLUMNS; ++j) {
+            if (j > 0 && j < BOARD_COLUMNS - 1 && i > 0) {
+                board->cells[i * BOARD_COLUMNS + j] = g_tetris_colors[COLOR_NONE];
+            } else {
+                board->cells[i * BOARD_COLUMNS + j] = g_tetris_colors[COLOR_MARGIN];
+            }
+        }
+    }
 }
 
-void board_destroy(tetris_board_t* board) {
-	if (board->current_piece != NULL) {
-		if (board->current_piece->draw_data != NULL) {
-			free(board->current_piece->draw_data);
-		}
-		free(board->current_piece);
-	}
+void board_destroy(tetris_board_t *board) {
+    if (board->current_piece != NULL) {
+        if (board->current_piece->draw_data != NULL) {
+            free(board->current_piece->draw_data);
+        }
+        free(board->current_piece);
+    }
 }
 
 void board_fixate_current_piece(tetris_board_t *board) {
-    if(board->current_piece == NULL) {
+    if (board->current_piece == NULL) {
         return;
     }
 
-    const tetris_piece_t * piece = board->current_piece;
+    const tetris_piece_t *piece = board->current_piece;
 
     int row;
-    for(row = 0; row < piece->h; ++row) {
+    for (row = 0; row < piece->h; ++row) {
         int col;
-        for(col = 0; col < piece->w; ++col) {
-            if(piece->draw_data[row * piece->w + col] != 0) {
+        for (col = 0; col < piece->w; ++col) {
+            if (piece->draw_data[row * piece->w + col] != 0) {
                 const int xpos = piece->x + col;
                 const int ypos = piece->y + row;
                 board->cells[ypos * BOARD_COLUMNS + xpos] = piece->color;
@@ -130,82 +126,96 @@ void board_fixate_current_piece(tetris_board_t *board) {
     }
 }
 
-void board_spawn_piece(tetris_board_t* board) {
-	if (board->current_piece != NULL) {
-		free(board->current_piece);
-		board->current_piece = NULL;
-	}
+void board_spawn_piece(tetris_context_t *ctx) {
+    tetris_board_t *board = &ctx->board;
 
-	tetris_piece_t* piece = calloc(1, sizeof(*piece));
+    if (board->current_piece != NULL) {
+        free(board->current_piece);
+        board->current_piece = NULL;
+    }
 
-	piece->color = g_tetris_colors[random_number(COLOR_NONE)];
-	piece->shape = random_number(SHAPE_END);
-	piece->x = 5;
-	piece->y = 1;
-	
-	tetris_shape_info_t info = g_tetris_shape_table[piece->shape];
-	piece->w = info.width;
-	piece->h = info.height;
+    tetris_piece_t *piece = calloc(1, sizeof(*piece));
 
-	const int size = piece->w * piece->h * sizeof (int);
+    piece->color = g_tetris_colors[random_number(COLOR_NONE)];
+    piece->shape = random_number(SHAPE_END);
+    piece->x = 5;
+    piece->y = 1;
 
-	piece->draw_data = calloc(1, size);
+    tetris_shape_info_t info = g_tetris_shape_table[piece->shape];
+    piece->w = info.width;
+    piece->h = info.height;
 
-	memcpy(piece->draw_data, info.data, size);
+    const int size = piece->w * piece->h * sizeof(int);
 
-	board->current_piece = piece;
+    piece->draw_data = calloc(1, size);
+
+    memcpy(piece->draw_data, info.data, size);
+
+    board->current_piece = piece;
+
+    ctx->stats.pieces_spawned += 1;
 }
 
-tetris_context_t* context_create(void) {
-	puts("Initializing SDL2...");
+void context_reset(tetris_context_t *ctx) {
+    ctx->target_framerate = FRAMERATE_DEFAULT;
+    ctx->event_stack_top = 0;
+    ctx->last_frame_duration = 0;
 
-	if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
-		puts("Failed to initialize SDL");
-		puts(SDL_GetError());
-		return NULL;
-	}
+    ctx->stats.start_time = SDL_GetTicks();
+    ctx->stats.end_time = ctx->stats.lines_cleared = ctx->stats.pieces_spawned = 0;
 
-	puts("Initializing SDL_TTF...");
+    board_initialize(&ctx->board);
+}
 
-	if (TTF_Init() != 0) {
-		puts("Failed to initialize SDL_TTF");
-		puts(TTF_GetError());
-		SDL_Quit();
-		return NULL;
-	}
+tetris_context_t *context_create(void) {
+    puts("Initializing SDL2...");
 
-	puts("Initializing context...");
+    if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
+        puts("Failed to initialize SDL");
+        puts(SDL_GetError());
+        return NULL;
+    }
 
-	tetris_context_t* ctx = calloc(1, sizeof(*ctx));
+    puts("Initializing SDL_TTF...");
 
-	ctx->w_width = W_WIDTH_DEFAULT;
-	ctx->w_height = W_HEIGHT_DEFAULT;
+    if (TTF_Init() != 0) {
+        puts("Failed to initialize SDL_TTF");
+        puts(TTF_GetError());
+        SDL_Quit();
+        return NULL;
+    }
 
-	int position = SDL_WINDOWPOS_CENTERED;
+    puts("Initializing context...");
 
-	ctx->window = SDL_CreateWindow("Not tetris", position, position, ctx->w_width, ctx->w_height, SDL_WINDOW_SHOWN);
+    tetris_context_t *ctx = calloc(1, sizeof(*ctx));
 
-	if (ctx->window == NULL) {
-		puts("Failed to create window");
-		free(ctx);
-		return NULL;
-	}
+    ctx->w_width = W_WIDTH_DEFAULT;
+    ctx->w_height = W_HEIGHT_DEFAULT;
 
-	ctx->renderer = SDL_CreateRenderer(ctx->window, -1, SDL_RENDERER_ACCELERATED);
+    int position = SDL_WINDOWPOS_CENTERED;
 
-	if (ctx->renderer == NULL) {
-		puts("Failed to create accelerated renderer. Trying software.");
+    ctx->window = SDL_CreateWindow("Not tetris", position, position, ctx->w_width, ctx->w_height, SDL_WINDOW_SHOWN);
 
-		ctx->renderer = SDL_CreateRenderer(ctx->window, -1, SDL_RENDERER_SOFTWARE);
-		if (ctx->renderer == NULL) {
-			SDL_DestroyWindow(ctx->window);
-			puts("Failed to create software renderer.");
-			free(ctx);
-			return NULL;
-		}
-	}
+    if (ctx->window == NULL) {
+        puts("Failed to create window");
+        free(ctx);
+        return NULL;
+    }
 
-	SDL_SetRenderDrawBlendMode(ctx->renderer, SDL_BLENDMODE_BLEND);
+    ctx->renderer = SDL_CreateRenderer(ctx->window, -1, SDL_RENDERER_ACCELERATED);
+
+    if (ctx->renderer == NULL) {
+        puts("Failed to create accelerated renderer. Trying software.");
+
+        ctx->renderer = SDL_CreateRenderer(ctx->window, -1, SDL_RENDERER_SOFTWARE);
+        if (ctx->renderer == NULL) {
+            SDL_DestroyWindow(ctx->window);
+            puts("Failed to create software renderer.");
+            free(ctx);
+            return NULL;
+        }
+    }
+
 
 	ctx->target_framerate = FRAMERATE_DEFAULT;
 	ctx->event_stack_top = 0;
@@ -217,7 +227,10 @@ tetris_context_t* context_create(void) {
 	ctx->score = 0;
 	ctx->font = NULL;
 
-	board_initialize(&ctx->board);
+    SDL_SetRenderDrawBlendMode(ctx->renderer, SDL_BLENDMODE_BLEND);
+
+
+    context_reset(ctx);
 
     ctx->font = TTF_OpenFont(FONT_NAME, 24);
 
@@ -226,147 +239,147 @@ tetris_context_t* context_create(void) {
         puts("Failed to load font. START:DASH lyrics will not be available during gameplay");
     }
 
-	return ctx;
+    return ctx;
 }
 
-void context_destroy(tetris_context_t* ctx) {
-	SDL_DestroyRenderer(ctx->renderer);
-	SDL_DestroyWindow(ctx->window);
+void context_destroy(tetris_context_t *ctx) {
+    SDL_DestroyRenderer(ctx->renderer);
+    SDL_DestroyWindow(ctx->window);
 
-	board_destroy(&ctx->board);
+    board_destroy(&ctx->board);
 
-	free(ctx);
+    free(ctx);
 
-	TTF_Quit();
-	SDL_Quit();
+    TTF_Quit();
+    SDL_Quit();
 }
 
-int game_push_event(tetris_context_t* ctx, tetris_event_kind_t kind, int64_t data) {
-	if (ctx->event_stack_top >= EVENT_STACK_SIZE) {
-		puts("Fatal error: Event stack overflow");
-		return 2;
-	}
+int game_push_event(tetris_context_t *ctx, tetris_event_kind_t kind, int64_t data) {
+    if (ctx->event_stack_top >= EVENT_STACK_SIZE) {
+        puts("Fatal error: Event stack overflow");
+        return 2;
+    }
 
-	tetris_event_t* event = &(ctx->event_stack[ctx->event_stack_top++]);
-	event->data = data;
-	event->kind = kind;
+    tetris_event_t *event = &(ctx->event_stack[ctx->event_stack_top++]);
+    event->data = data;
+    event->kind = kind;
 
-	return 0;
+    return 0;
 }
 
-int game_collect_events(tetris_context_t* ctx) {
-	SDL_Event e;
+int game_collect_events(tetris_context_t *ctx) {
+    SDL_Event e;
 
-	while (SDL_PollEvent(&e)) {
-		switch (e.type) {
-		case SDL_KEYDOWN:
-			return game_push_event(ctx, EVENT_KEYDOWN, e.key.keysym.sym);
-		case SDL_WINDOWEVENT_FOCUS_GAINED:
-		case SDL_WINDOWEVENT_RESTORED:
-			return game_push_event(ctx, EVENT_FOCUS_REGAIN, 0);
-		case SDL_WINDOWEVENT_FOCUS_LOST:
-		case SDL_WINDOWEVENT_MINIMIZED:
-			return game_push_event(ctx, EVENT_FOCUS_LOST, 0);
-		case SDL_WINDOWEVENT_MOVED:
-			SDL_SetWindowPosition(ctx->window, e.window.data1, e.window.data2);
-			break;
-		case SDL_WINDOWEVENT_CLOSE:
-		case SDL_QUIT:
-			return 1;
-		default:
-			return 0;
-		}
-	}
+    while (SDL_PollEvent(&e)) {
+        switch (e.type) {
+            case SDL_KEYDOWN:
+                return game_push_event(ctx, EVENT_KEYDOWN, e.key.keysym.sym);
+            case SDL_WINDOWEVENT_FOCUS_GAINED:
+            case SDL_WINDOWEVENT_RESTORED:
+                return game_push_event(ctx, EVENT_FOCUS_REGAIN, 0);
+            case SDL_WINDOWEVENT_FOCUS_LOST:
+            case SDL_WINDOWEVENT_MINIMIZED:
+                return game_push_event(ctx, EVENT_FOCUS_LOST, 0);
+            case SDL_WINDOWEVENT_MOVED:
+                SDL_SetWindowPosition(ctx->window, e.window.data1, e.window.data2);
+                break;
+            case SDL_WINDOWEVENT_CLOSE:
+            case SDL_QUIT:
+                return 1;
+            default:
+                return 0;
+        }
+    }
 
-	return 0;
+    return 0;
 }
 
-void query_board_size(tetris_context_t* ctx, double* width, double* height) {
-	const double vert_region = ctx->w_height;
-	const double hori_region = vert_region * ((double)BOARD_COLUMNS / (double)BOARD_ROWS);
+void query_board_size(tetris_context_t *ctx, double *width, double *height) {
+    const double vert_region = ctx->w_height;
+    const double hori_region = vert_region * ((double) BOARD_COLUMNS / (double) BOARD_ROWS);
 
-	if (height != NULL) {
-		*height = vert_region;
-	}
+    if (height != NULL) {
+        *height = vert_region;
+    }
 
-	if (width != NULL) {
-		*width = hori_region;
-	}
+    if (width != NULL) {
+        *width = hori_region;
+    }
 }
 
-void draw_single_block(tetris_context_t* ctx, int x, int y, int color) {
-	double bw, bh;
+void draw_single_block(tetris_context_t *ctx, int x, int y, int color) {
+    double bw, bh;
 
-	query_board_size(ctx, &bw, &bh);
+    query_board_size(ctx, &bw, &bh);
 
-	const double cell_width = bw / BOARD_COLUMNS;
-	const double cell_height = bh / BOARD_ROWS;
+    const double cell_width = bw / BOARD_COLUMNS;
+    const double cell_height = bh / BOARD_ROWS;
 
-	SDL_FRect rect;
+    SDL_FRect rect;
 
-	rect.h = cell_height;
-	rect.w = cell_width;
-	rect.x = x * cell_width;
-	rect.y = y * cell_height;
+    rect.h = cell_height;
+    rect.w = cell_width;
+    rect.x = x * cell_width;
+    rect.y = y * cell_height;
 
-	const int inner_color = darken_color(color, DARK_AMOUNT);
+    const int inner_color = darken_color(color, DARK_AMOUNT);
 
-	set_draw_color(ctx->renderer, color);
-	SDL_RenderFillRectF(ctx->renderer, &rect);
+    set_draw_color(ctx->renderer, color);
+    SDL_RenderFillRectF(ctx->renderer, &rect);
 
-	set_draw_color(ctx->renderer, inner_color);
-	SDL_RenderDrawRectF(ctx->renderer, &rect);
+    set_draw_color(ctx->renderer, inner_color);
+    SDL_RenderDrawRectF(ctx->renderer, &rect);
 }
 
 int board_get_cell(const tetris_board_t *board, int x, int y) {
     return board->cells[y * BOARD_COLUMNS + x];
 }
 
-int draw_existing_blocks(tetris_context_t* ctx) {
-	int i, x = 0, y = 0;
-	for (i = 0; i < BOARD_SIZE; ++i) {
-		if (x % BOARD_COLUMNS == 0 && i > 0) {
-			y += 1;
-			x = 0;
-		}
+int draw_existing_blocks(tetris_context_t *ctx) {
+    int i, x = 0, y = 0;
+    for (i = 0; i < BOARD_SIZE; ++i) {
+        if (x % BOARD_COLUMNS == 0 && i > 0) {
+            y += 1;
+            x = 0;
+        }
 
-		draw_single_block(ctx, x, y, ctx->board.cells[i]);
+        draw_single_block(ctx, x, y, ctx->board.cells[i]);
 
-		x += 1;
-	}
+        x += 1;
+    }
 
-	return 0;
+    return 0;
 }
 
-int draw_current_piece(tetris_context_t* ctx) {
-	const tetris_piece_t* piece = ctx->board.current_piece;
+int draw_current_piece(tetris_context_t *ctx) {
+    const tetris_piece_t *piece = ctx->board.current_piece;
 
-	if (piece != NULL) {
-		int y;
-		for (y = 0; y < piece->h; ++y) {
-			int x;
-			for (x = 0; x < piece->w; ++x) {
-				if (piece->draw_data[y * piece->w + x]) {
-					draw_single_block(ctx, piece->x + x, piece->y + y, piece->color);
-				}
-			}
-		}
-	}
+    if (piece != NULL) {
+        int y;
+        for (y = 0; y < piece->h; ++y) {
+            int x;
+            for (x = 0; x < piece->w; ++x) {
+                if (piece->draw_data[y * piece->w + x]) {
+                    draw_single_block(ctx, piece->x + x, piece->y + y, piece->color);
+                }
+            }
+        }
+    }
 
-	return 0;
+    return 0;
 }
 
 static void clear_board_row(tetris_board_t *board, int row) {
     int col;
-    for(col = 1; col < BOARD_COLUMNS - 1; ++col) {
+    for (col = 1; col < BOARD_COLUMNS - 1; ++col) {
         board->cells[row * BOARD_COLUMNS + col] = g_tetris_colors[COLOR_NONE];
     }
 }
 
 static int row_has_empty_cell(tetris_board_t *board, int row) {
     int col, has_empty = 0;
-    for(col = 1; col < BOARD_COLUMNS; ++col) {
-        if(board->cells[row * BOARD_COLUMNS + col] == g_tetris_colors[COLOR_NONE]) {
+    for (col = 1; col < BOARD_COLUMNS; ++col) {
+        if (board->cells[row * BOARD_COLUMNS + col] == g_tetris_colors[COLOR_NONE]) {
             has_empty = 1;
             break;
         }
@@ -377,8 +390,8 @@ static int row_has_empty_cell(tetris_board_t *board, int row) {
 
 static int row_is_all_empty(tetris_board_t *board, int row) {
     int col, all_empty = 1;
-    for(col = 1; col < BOARD_COLUMNS - 1; ++col) {
-        if(board->cells[row * BOARD_COLUMNS + col] != g_tetris_colors[COLOR_NONE]) {
+    for (col = 1; col < BOARD_COLUMNS - 1; ++col) {
+        if (board->cells[row * BOARD_COLUMNS + col] != g_tetris_colors[COLOR_NONE]) {
             all_empty = 0;
             break;
         }
@@ -388,14 +401,14 @@ static int row_is_all_empty(tetris_board_t *board, int row) {
 
 static void move_cells_above_line(tetris_board_t *board, int cleared_row) {
     int row, last_row = 1;
-    for(row = cleared_row - 1; row >= 1; --row) {
-        if(row_is_all_empty(board, row)) {
+    for (row = cleared_row - 1; row >= 1; --row) {
+        if (row_is_all_empty(board, row)) {
             last_row = row + 1;
             break;
         }
 
         int col;
-        for(col = 1; col < BOARD_COLUMNS - 1; ++col) {
+        for (col = 1; col < BOARD_COLUMNS - 1; ++col) {
             int source_index = row * BOARD_COLUMNS + col;
             int target_index = (row + 1) * BOARD_COLUMNS + col;
 
@@ -426,6 +439,9 @@ void board_check_for_clears(tetris_context_t *ctx) {
         if(!row_has_empty_cell(&ctx->board, row)) {
             clear_board_row(&ctx->board, row);
             move_cells_above_line(&ctx->board, row);
+
+            ctx->stats.lines_cleared += 1;
+
             row += 1;
 			++clears;
         }
@@ -455,28 +471,28 @@ int draw_score(tetris_context_t* ctx) {
 	double bw, bh;
 	char buffer[20];
 
-	query_board_size(ctx, &bw, &bh);
+    query_board_size(ctx, &bw, &bh);
 
-	if (ctx->font == NULL) {
-	    return 0;
-	}
+    if (ctx->font == NULL) {
+        return 0;
+    }
 
-	SDL_Color color = { 255, 255, 255 };
+    SDL_Color color = {255, 255, 255};
 
-	SDL_Surface* surface = TTF_RenderText_Solid(ctx->font, "I SAAAAAAAAAAY", color);
+    SDL_Surface *surface = TTF_RenderText_Solid(ctx->font, "I SAAAAAAAAAAY", color);
 
-	SDL_Texture* text_texture = SDL_CreateTextureFromSurface(ctx->renderer, surface);
+    SDL_Texture *text_texture = SDL_CreateTextureFromSurface(ctx->renderer, surface);
 
-	SDL_FRect dst;
-	dst.h = 60;
-	dst.w = 700;
-	dst.x = bw + 20;
-	dst.y = 10;
+    SDL_FRect dst;
+    dst.h = 60;
+    dst.w = 700;
+    dst.x = bw + 20;
+    dst.y = 10;
 
-	SDL_RenderCopyF(ctx->renderer, text_texture, NULL, &dst);
+    SDL_RenderCopyF(ctx->renderer, text_texture, NULL, &dst);
 
-	SDL_FreeSurface(surface);
-	SDL_DestroyTexture(text_texture);
+    SDL_FreeSurface(surface);
+    SDL_DestroyTexture(text_texture);
 
     surface = TTF_RenderText_Solid(ctx->font, "HEY            ", color);
 
@@ -539,42 +555,42 @@ int draw_score(tetris_context_t* ctx) {
 	return 0;
 }
 
-int game_draw(tetris_context_t* ctx) {
-	int status_code = 0;
+int game_draw(tetris_context_t *ctx) {
+    int status_code = 0;
 
-	game_loop_fn_t draw_functions[] = { draw_existing_blocks, draw_current_piece, draw_score };
+    game_loop_fn_t draw_functions[] = {draw_existing_blocks, draw_current_piece, draw_score};
 
-	SDL_SetRenderDrawColor(ctx->renderer, 0, 0, 0, 255);
-	SDL_RenderClear(ctx->renderer);
+    SDL_SetRenderDrawColor(ctx->renderer, 0, 0, 0, 255);
+    SDL_RenderClear(ctx->renderer);
 
-	int i;
-	for (i = 0; i < sizeof draw_functions / sizeof * draw_functions; ++i) {
-		game_loop_fn_t fn = draw_functions[i];
+    int i;
+    for (i = 0; i < sizeof draw_functions / sizeof *draw_functions; ++i) {
+        game_loop_fn_t fn = draw_functions[i];
 
-		status_code = fn(ctx);
-		if (status_code != 0) {
-			puts("Error occurred during drawing");
-			break;
-		}
-	}
+        status_code = fn(ctx);
+        if (status_code != 0) {
+            puts("Error occurred during drawing");
+            break;
+        }
+    }
 
-	SDL_RenderPresent(ctx->renderer);
+    SDL_RenderPresent(ctx->renderer);
 
-	return status_code;
+    return status_code;
 }
 
-void game_update_title(tetris_context_t* ctx) {
-	static char buffer[1024];
-	*buffer = 0;
+void game_update_title(tetris_context_t *ctx) {
+    static char buffer[1024];
+    *buffer = 0;
 
-	double framerate = 1000.0 / (ctx->last_frame_duration * 1000);
+    double framerate = 1000.0 / (ctx->last_frame_duration * 1000);
 
-	snprintf(buffer, sizeof(buffer), "Not Tetris - %dx%d - %.2f FPS", ctx->w_width, ctx->w_height, framerate);
-	SDL_SetWindowTitle(ctx->window, buffer);
+    snprintf(buffer, sizeof(buffer), "Not Tetris - %dx%d - %.2f FPS", ctx->w_width, ctx->w_height, framerate);
+    SDL_SetWindowTitle(ctx->window, buffer);
 }
 
-int game_run(tetris_context_t* ctx, game_loop_fn_t game_update) {
-	int status_code, quit = 0;
+int game_run(tetris_context_t *ctx, game_loop_fn_t game_update) {
+    int status_code, quit = 0;
 
 	/* This inter-frame timer is a tad more accurate. */
 	if (ctx->last_time == -1)
@@ -590,30 +606,31 @@ int game_run(tetris_context_t* ctx, game_loop_fn_t game_update) {
 
 	const int target_ticks = (1000 / ctx->target_framerate);
 
-	game_loop_fn_t game_loop_functions[] = { game_collect_events, game_update, game_draw };
 
-	uint64_t frame_ticks = SDL_GetTicks();
+    game_loop_fn_t game_loop_functions[] = {game_collect_events, game_update, game_draw};
 
-	int i;
-	for (i = 0; i < sizeof game_loop_functions / sizeof(*game_loop_functions); ++i) {
-		game_loop_fn_t fun = game_loop_functions[i];
-		status_code = fun(ctx);
-		if (status_code != 0) {
-			quit = 1;
-			break;
-		}
-	}
+    uint64_t frame_ticks = SDL_GetTicks();
 
-	uint64_t elapsed = SDL_GetTicks() - frame_ticks;
-	if (elapsed < target_ticks) {
-		SDL_Delay(target_ticks - elapsed);
-	}
+    int i;
+    for (i = 0; i < sizeof game_loop_functions / sizeof(*game_loop_functions); ++i) {
+        game_loop_fn_t fun = game_loop_functions[i];
+        status_code = fun(ctx);
+        if (status_code != 0) {
+            quit = 1;
+            break;
+        }
+    }
 
-	elapsed = SDL_GetTicks() - frame_ticks;
+    uint64_t elapsed = SDL_GetTicks() - frame_ticks;
+    if (elapsed < target_ticks) {
+        SDL_Delay(target_ticks - elapsed);
+    }
 
-	ctx->last_frame_duration = elapsed / 1000.0;
+    elapsed = SDL_GetTicks() - frame_ticks;
 
-	game_update_title(ctx);
+    ctx->last_frame_duration = elapsed / 1000.0;
 
-	return quit;
+    game_update_title(ctx);
+
+    return quit;
 }
