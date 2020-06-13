@@ -12,7 +12,7 @@
 #define BOARD_ROWS (22)
 #define BOARD_COLUMNS (12)
 #define DARK_AMOUNT (0.25)
-#define FONT_NAME ("..\\font.ttf")
+#define FONT_NAME ("font.ttf")
 
 typedef struct {
 	int width, height;

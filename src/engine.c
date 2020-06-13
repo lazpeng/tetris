@@ -215,8 +215,12 @@ tetris_context_t* context_create(void) {
 
 	board_initialize(&ctx->board);
 
-	// FIXME
-	board_spawn_piece(&ctx->board);
+    ctx->font = TTF_OpenFont(FONT_NAME, 24);
+
+    if (ctx->font == NULL) {
+        puts(TTF_GetError());
+        puts("Failed to load font.ttf. START:DASH lyrics will not be availble during gameplay");
+    }
 
 	return ctx;
 }
@@ -382,12 +386,7 @@ int draw_score(tetris_context_t* ctx) {
 	query_board_size(ctx, &bw, &bh);
 
 	if (ctx->font == NULL) {
-		ctx->font = TTF_OpenFont(FONT_NAME, 24);
-
-		if (ctx->font == NULL) {
-			puts(TTF_GetError());
-			return -1;
-		}
+	    return 0;
 	}
 
 	SDL_Color color = { 255, 255, 255 };
