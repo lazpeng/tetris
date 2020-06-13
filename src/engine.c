@@ -352,34 +352,6 @@ int draw_current_piece(tetris_context_t* ctx) {
 	return 0;
 }
 
-void game_rotate_piece(tetris_board_t* board) {
-    tetris_piece_t *piece = board->current_piece;
-
-    if(piece == NULL) {
-        return;
-    }
-
-	int* buffer = calloc(1, sizeof(int) * piece->w * piece->h);
-
-	const int* data = piece->draw_data;
-
-	int y;
-	for (y = 0; y < piece->h; ++y) {
-		int x;
-		for (x = 0; x < piece->w; ++x) {
-			const int nx = piece->h - y - 1;
-			buffer[x * piece->h + nx] = data[y * piece->w + x];
-		}
-	}
-
-	int temp = piece->w;
-	piece->w = piece->h;
-	piece->h = temp;
-
-	free(data);
-	piece->draw_data = buffer;
-}
-
 int draw_score(tetris_context_t* ctx) {
 	double bw, bh;
 

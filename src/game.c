@@ -1,5 +1,7 @@
 #include "engine.h"
 
+#include <stdlib.h>
+
 #include <SDL2/SDL.h>
 
 #define AXIS_X (0)
@@ -14,7 +16,7 @@ static int collides_x(const tetris_board_t *board, int x_offset) {
     for(row = 0; row < piece->h; ++row) {
         // Find first block from each edge
 
-        if(x_offset > 0) {
+        if(x_offset >= 0) {
             int col;
             for(col = piece->w - 1; col >= 0; --col) {
                 if(piece->draw_data[row * piece->w + col] != 0) {
@@ -26,7 +28,8 @@ static int collides_x(const tetris_board_t *board, int x_offset) {
                     break;
                 }
             }
-        } else if(x_offset < 0) {
+        }
+        if(x_offset <= 0) {
             int col;
             for(col = 0; col < piece->h; ++col) {
                 if(piece->draw_data[row * piece->w + col] != 0) {
@@ -87,6 +90,46 @@ static void game_move_piece(tetris_context_t *ctx, int axis, int amount) {
                 ctx->board.current_piece->y += amount;
             }
         }
+    }
+}
+
+static void game_rotate_piece(tetris_board_t* board) {
+    tetris_piece_t *piece = board->current_piece;
+
+    if(piece == NULL) {
+        return;
+    }
+
+    int* buffer = calloc(1, sizeof(int) * piece->w * piece->h);
+
+    int* data = piece->draw_data;
+
+    int y;
+    for (y = 0; y < piece->h; ++y) {
+        int x;
+        for (x = 0; x < piece->w; ++x) {
+            const int nx = piece->h - y - 1;
+            buffer[x * piece->h + nx] = data[y * piece->w + x];
+        }
+    }
+
+    int temp = piece->w;
+    piece->w = piece->h;
+    piece->h = temp;
+
+    piece->draw_data = buffer;
+
+    if(collides_y(board, 0) || collides_x(board, 0)) {
+        // If after the rotation the piece now collides with something, undo it
+
+        piece->draw_data = data;
+        free(buffer);
+
+        temp = piece->w;
+        piece->w = piece->h;
+        piece->h = temp;
+    } else {
+        free(data);
     }
 }
 

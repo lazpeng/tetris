@@ -106,8 +106,6 @@ int darken_color(uint32_t color, double amount);
 
 int game_draw(tetris_context_t* ctx);
 
-void game_rotate_piece(tetris_board_t* board);
-
 int board_get_cell(const tetris_board_t *board, int x, int y);
 
 void board_spawn_piece(tetris_board_t* board);
