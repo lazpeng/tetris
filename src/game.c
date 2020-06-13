@@ -169,6 +169,7 @@ int game_update(tetris_context_t* ctx) {
 
     if(ctx->board.current_piece == NULL || collides_y(&ctx->board, 1)) {
         board_fixate_current_piece(&ctx->board);
+        board_check_for_clears(ctx);
         board_spawn_piece(&ctx->board);
     }
 

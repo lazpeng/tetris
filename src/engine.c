@@ -219,7 +219,7 @@ tetris_context_t* context_create(void) {
 
     if (ctx->font == NULL) {
         puts(TTF_GetError());
-        puts("Failed to load font.ttf. START:DASH lyrics will not be availble during gameplay");
+        puts("Failed to load font. START:DASH lyrics will not be available during gameplay");
     }
 
 	return ctx;
@@ -350,6 +350,67 @@ int draw_current_piece(tetris_context_t* ctx) {
 	}
 
 	return 0;
+}
+
+static void clear_board_row(tetris_board_t *board, int row) {
+    int col;
+    for(col = 1; col < BOARD_COLUMNS - 1; ++col) {
+        board->cells[row * BOARD_COLUMNS + col] = g_tetris_colors[COLOR_NONE];
+    }
+}
+
+static int row_has_empty_cell(tetris_board_t *board, int row) {
+    int col, has_empty = 0;
+    for(col = 1; col < BOARD_COLUMNS; ++col) {
+        if(board->cells[row * BOARD_COLUMNS + col] == g_tetris_colors[COLOR_NONE]) {
+            has_empty = 1;
+            break;
+        }
+    }
+
+    return has_empty;
+}
+
+static int row_is_all_empty(tetris_board_t *board, int row) {
+    int col, all_empty = 1;
+    for(col = 1; col < BOARD_COLUMNS - 1; ++col) {
+        if(board->cells[row * BOARD_COLUMNS + col] != g_tetris_colors[COLOR_NONE]) {
+            all_empty = 0;
+            break;
+        }
+    }
+    return all_empty;
+}
+
+static void move_cells_above_line(tetris_board_t *board, int cleared_row) {
+    int row, last_row = 1;
+    for(row = cleared_row - 1; row >= 1; --row) {
+        if(row_is_all_empty(board, row)) {
+            last_row = row + 1;
+            break;
+        }
+
+        int col;
+        for(col = 1; col < BOARD_COLUMNS - 1; ++col) {
+            int source_index = row * BOARD_COLUMNS + col;
+            int target_index = (row + 1) * BOARD_COLUMNS + col;
+
+            board->cells[target_index] = board->cells[source_index];
+        }
+    }
+
+    clear_board_row(board, last_row);
+}
+
+void board_check_for_clears(tetris_context_t *ctx) {
+    int row;
+    for(row = BOARD_ROWS - 1; row >= 1; --row) {
+        if(!row_has_empty_cell(&ctx->board, row)) {
+            clear_board_row(&ctx->board, row);
+            move_cells_above_line(&ctx->board, row);
+            row += 1;
+        }
+    }
 }
 
 int draw_score(tetris_context_t* ctx) {

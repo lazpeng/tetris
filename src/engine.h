@@ -112,6 +112,8 @@ void board_spawn_piece(tetris_board_t* board);
 
 void board_fixate_current_piece(tetris_board_t *board);
 
+void board_check_for_clears(tetris_context_t *ctx);
+
 int game_collect_events(tetris_context_t* ctx);
 
 int game_run(tetris_context_t* ctx, game_loop_fn_t game_update);
