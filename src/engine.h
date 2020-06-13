@@ -2,15 +2,13 @@
 
 #include <stdint.h>
 
-#define BOARD_HEIGHT (40)
-#define BOARD_WIDTH (10)
-#define BOARD_SIZE (BOARD_HEIGHT * BOARD_WIDTH)
 #define EVENT_STACK_SIZE (128)
 #define W_WIDTH_DEFAULT (1280)
 #define W_HEIGHT_DEFAULT (720)
 #define FRAMERATE_DEFAULT (60)
 #define BOARD_ROWS (22)
 #define BOARD_COLUMNS (12)
+#define BOARD_SIZE (BOARD_ROWS * BOARD_COLUMNS)
 #define DARK_AMOUNT (0.25)
 #define FONT_NAME ("font.ttf")
 
@@ -43,7 +41,7 @@ typedef enum {
     COLOR_RED,
     COLOR_MAGENTA,
     COLOR_NONE,
-    COLOR_GREY,
+    COLOR_MARGIN,
 } tetris_color_t;
 
 typedef struct {
@@ -70,22 +68,21 @@ typedef struct {
     tetris_event_kind_t kind;
 } tetris_event_t;
 
-typedef enum {
-    STATE_HALT,
-    STATE_RUNNING,
-    STATE_PAUSED
-} tetris_state_t;
+typedef struct {
+    int pieces_spawned, lines_cleared;
+    uint64_t start_time, end_time;
+} tetris_stats_t;
 
 typedef struct {
     int w_height, w_width;
     SDL_Window *window;
     SDL_Renderer *renderer;
     int target_framerate;
-    tetris_state_t game_state;
     tetris_event_t event_stack[EVENT_STACK_SIZE];
     int event_stack_top;
     tetris_board_t board;
     double last_frame_duration;
+    tetris_stats_t stats;
     TTF_Font *font;
 } tetris_context_t;
 
@@ -108,7 +105,7 @@ int game_draw(tetris_context_t *ctx);
 
 int board_get_cell(const tetris_board_t *board, int x, int y);
 
-void board_spawn_piece(tetris_board_t *board);
+void board_spawn_piece(tetris_context_t *ctx);
 
 void board_fixate_current_piece(tetris_board_t *board);
 
@@ -121,3 +118,5 @@ int game_run(tetris_context_t *ctx, game_loop_fn_t game_update);
 void context_destroy(tetris_context_t *ctx);
 
 tetris_context_t *context_create(void);
+
+void context_reset(tetris_context_t *ctx);

@@ -1,6 +1,7 @@
 #include "engine.h"
 
 #include <stdlib.h>
+#include <stdio.h>
 
 #include <SDL2/SDL.h>
 
@@ -164,13 +165,39 @@ static int game_check_input(tetris_context_t *ctx) {
 	return 0;
 }
 
+static void game_reset(tetris_context_t *ctx) {
+	ctx->stats.end_time = SDL_GetTicks();
+
+	static char message[4096];
+	*message = 0;
+
+	const char * const format = "Game over. Statistics:\nTotal game time: %.2fs\nLines cleared: %d\nPieces spawned: %d\n";
+
+	// Shit fix
+	// we substract one because if the game is over it means the last piece didn't properly spawn
+	ctx->stats.pieces_spawned -= 1;
+
+	snprintf(message, sizeof message, format, (ctx->stats.end_time - ctx->stats.start_time + 0.0) / 1000.0, ctx->stats.lines_cleared, ctx->stats.pieces_spawned);
+
+	SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "End", message, ctx->window);
+
+	context_reset(ctx);
+}
+
 int game_update(tetris_context_t *ctx) {
 	int status_code;
 
 	if (ctx->board.current_piece == NULL || collides_y(&ctx->board, 1)) {
 		board_fixate_current_piece(&ctx->board);
 		board_check_for_clears(ctx);
-		board_spawn_piece(&ctx->board);
+		board_spawn_piece(ctx);
+
+		// If after spawning a piece it immediately overlap another piece (in the first row), it's a loss
+		// Unfortunately this is the only loss condition in the game
+
+		if (collides_y(&ctx->board, 0) || collides_x(&ctx->board, 0)) {
+			game_reset(ctx);
+		}
 	}
 
 	if ((status_code = game_check_input(ctx)) != 0) {

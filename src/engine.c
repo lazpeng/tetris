@@ -84,17 +84,14 @@ int darken_color(uint32_t color, double amount) {
 void board_initialize(tetris_board_t *board) {
     board->current_piece = NULL;
 
-    int grey_bg = g_tetris_colors[COLOR_NONE];
-    int grey = g_tetris_colors[COLOR_GREY];
-
     int i;
     for (i = 0; i < BOARD_ROWS; ++i) {
         int j;
         for (j = 0; j < BOARD_COLUMNS; ++j) {
-            if (j != 0 && j != BOARD_COLUMNS - 1 && i != 0 && i != BOARD_ROWS - 1) {
-                board->cells[i * BOARD_COLUMNS + j] = grey_bg;
+            if (j > 0 && j < BOARD_COLUMNS - 1 && i > 0) {
+                board->cells[i * BOARD_COLUMNS + j] = g_tetris_colors[COLOR_NONE];
             } else {
-                board->cells[i * BOARD_COLUMNS + j] = grey;
+                board->cells[i * BOARD_COLUMNS + j] = g_tetris_colors[COLOR_MARGIN];
             }
         }
     }
@@ -129,7 +126,9 @@ void board_fixate_current_piece(tetris_board_t *board) {
     }
 }
 
-void board_spawn_piece(tetris_board_t *board) {
+void board_spawn_piece(tetris_context_t *ctx) {
+    tetris_board_t *board = &ctx->board;
+
     if (board->current_piece != NULL) {
         free(board->current_piece);
         board->current_piece = NULL;
@@ -153,6 +152,19 @@ void board_spawn_piece(tetris_board_t *board) {
     memcpy(piece->draw_data, info.data, size);
 
     board->current_piece = piece;
+
+    ctx->stats.pieces_spawned += 1;
+}
+
+void context_reset(tetris_context_t *ctx) {
+    ctx->target_framerate = FRAMERATE_DEFAULT;
+    ctx->event_stack_top = 0;
+    ctx->last_frame_duration = 0;
+
+    ctx->stats.start_time = SDL_GetTicks();
+    ctx->stats.end_time = ctx->stats.lines_cleared = ctx->stats.pieces_spawned = 0;
+
+    board_initialize(&ctx->board);
 }
 
 tetris_context_t *context_create(void) {
@@ -206,13 +218,7 @@ tetris_context_t *context_create(void) {
 
     SDL_SetRenderDrawBlendMode(ctx->renderer, SDL_BLENDMODE_BLEND);
 
-    ctx->target_framerate = FRAMERATE_DEFAULT;
-    ctx->event_stack_top = 0;
-    ctx->game_state = STATE_HALT;
-    ctx->last_frame_duration = 0;
-    ctx->font = NULL;
-
-    board_initialize(&ctx->board);
+    context_reset(ctx);
 
     ctx->font = TTF_OpenFont(FONT_NAME, 24);
 
@@ -407,6 +413,9 @@ void board_check_for_clears(tetris_context_t *ctx) {
         if (!row_has_empty_cell(&ctx->board, row)) {
             clear_board_row(&ctx->board, row);
             move_cells_above_line(&ctx->board, row);
+
+            ctx->stats.lines_cleared += 1;
+
             row += 1;
         }
     }
