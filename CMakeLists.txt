@@ -7,6 +7,6 @@ file(GLOB SRC_FILES "src/*.c")
 
 add_executable(tetris ${SRC_FILES})
 
-target_include_directories(tetris PUBLIC "C:\\Users\\rafael.nakano\\Documents\\SDL2-2.0.12\\include")
-target_link_directories(tetris PUBLIC "C:\\Users\\rafael.nakano\\Documents\\SDL2-2.0.12\\lib\\x86")
-target_link_libraries(tetris SDL2main SDL2 SDL2_ttf)
+find_package(SDL2 CONFIG REQUIRED)
+find_package(sdl2-ttf CONFIG REQUIRED)
+target_link_libraries(tetris PRIVATE SDL2::SDL2 SDL2::SDL2main SDL2::SDL2_ttf)
