@@ -90,7 +90,6 @@ typedef struct {
 	SDL_Window* window;
 	SDL_Renderer* renderer;
 	int target_framerate;
-	tetris_state_t game_state;
 	tetris_event_t event_stack[EVENT_STACK_SIZE];
 	int event_stack_top;
 	tetris_board_t board;
@@ -99,7 +98,7 @@ typedef struct {
 	uint64_t last_time;
 	double fall_timer;
 	unsigned int score;
-  tetris_stats_t stats;
+	tetris_stats_t stats;
 	TTF_Font* font;
 } tetris_context_t;
 

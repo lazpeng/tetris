@@ -219,7 +219,6 @@ tetris_context_t *context_create(void) {
 
 	ctx->target_framerate = FRAMERATE_DEFAULT;
 	ctx->event_stack_top = 0;
-	ctx->game_state = STATE_HALT;
 	ctx->last_frame_duration = 0;
 	ctx->fall_timer = 0;
 	ctx->last_delta_time = 1.0 / (double) ctx->target_framerate;
@@ -228,7 +227,6 @@ tetris_context_t *context_create(void) {
 	ctx->font = NULL;
 
     SDL_SetRenderDrawBlendMode(ctx->renderer, SDL_BLENDMODE_BLEND);
-
 
     context_reset(ctx);
 
@@ -469,7 +467,6 @@ void board_check_for_clears(tetris_context_t *ctx) {
 
 int draw_score(tetris_context_t* ctx) {
 	double bw, bh;
-	char buffer[20];
 
     query_board_size(ctx, &bw, &bh);
 
@@ -533,18 +530,19 @@ int draw_score(tetris_context_t* ctx) {
 
     SDL_RenderCopyF(ctx->renderer, text_texture, NULL, &dst);
 
+	SDL_FreeSurface(surface);
+	SDL_DestroyTexture(text_texture);
+
+	static char buffer[256];
+
 	/* Draw the score value. */
-	snprintf(buffer, 20, "%d", ctx->score);
-	int i;
-	for (i = strlen(buffer); i < 20; ++i)
-		buffer[i] = ' ';
-	buffer[i] = 0;
+	snprintf(buffer, sizeof buffer, "%d", ctx->score);
 
 	surface = TTF_RenderText_Solid(ctx->font, buffer, color);
 	text_texture = SDL_CreateTextureFromSurface(ctx->renderer, surface);
 
 	dst.h = 60;
-	dst.w = 700;
+	dst.w = 75 * strlen(buffer);
 	dst.x = bw + 20;
 	dst.y = 400;
 
