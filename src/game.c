@@ -186,6 +186,15 @@ static void game_reset(tetris_context_t *ctx) {
 
 int game_update(tetris_context_t *ctx) {
 	int status_code;
+    double fall_time;
+    
+    ctx->fall_timer += ctx->last_delta_time;
+    fall_time = game_get_piece_fall_time(ctx);
+    while(ctx->fall_timer > fall_time)
+    {
+        game_move_piece(ctx, AXIS_Y, 1);
+        ctx->fall_timer -= fall_time;
+    }
 
 	if (ctx->board.current_piece == NULL || collides_y(&ctx->board, 1)) {
 		board_fixate_current_piece(&ctx->board);

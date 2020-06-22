@@ -216,7 +216,19 @@ tetris_context_t *context_create(void) {
         }
     }
 
+
+	ctx->target_framerate = FRAMERATE_DEFAULT;
+	ctx->event_stack_top = 0;
+	ctx->game_state = STATE_HALT;
+	ctx->last_frame_duration = 0;
+	ctx->fall_timer = 0;
+	ctx->last_delta_time = 1.0 / (double) ctx->target_framerate;
+	ctx->last_time = -1;
+	ctx->score = 0;
+	ctx->font = NULL;
+
     SDL_SetRenderDrawBlendMode(ctx->renderer, SDL_BLENDMODE_BLEND);
+
 
     context_reset(ctx);
 
@@ -407,22 +419,57 @@ static void move_cells_above_line(tetris_board_t *board, int cleared_row) {
     clear_board_row(board, last_row);
 }
 
+double game_get_piece_fall_time(tetris_context_t* ctx)
+{
+	/* Linearly interpolate between fall times, capping at the end game value. */
+	double pos = ctx->score / FALL_TIME_SCORE_RANGE;
+	double delta = ((double)FALL_TIME_SECONDS_END - (double)FALL_TIME_SECONDS_BEG);
+	if (pos > 1.0) pos = 1.0;
+
+	return FALL_TIME_SECONDS_BEG + delta * pos;
+}
+
 void board_check_for_clears(tetris_context_t *ctx) {
+	unsigned int clears;
+	double fall_time, added;
     int row;
-    for (row = BOARD_ROWS - 1; row >= 1; --row) {
-        if (!row_has_empty_cell(&ctx->board, row)) {
+
+	clears = 0;
+    for(row = BOARD_ROWS - 1; row >= 1; --row) {
+        if(!row_has_empty_cell(&ctx->board, row)) {
             clear_board_row(&ctx->board, row);
             move_cells_above_line(&ctx->board, row);
 
             ctx->stats.lines_cleared += 1;
 
             row += 1;
+			++clears;
         }
     }
+
+	/* Apply score based on how much was cleared. */
+	if (clears > 0) {
+		added = 0;
+		fall_time = game_get_piece_fall_time(ctx);
+
+		switch (clears)
+		{
+		case 1: added = SCORE_BASE_SINGLE / fall_time; break;
+		case 2: added = SCORE_BASE_DOUBLE / fall_time; break;
+		case 3: added = SCORE_BASE_TRIPLE / fall_time; break;
+		default:
+			/* Tetris is special. */
+			added = SCORE_BASE_TETRIS / 4.0 * clears / fall_time;
+			break;
+		}
+
+		ctx->score += (unsigned int) round(added);
+	}
 }
 
-int draw_score(tetris_context_t *ctx) {
-    double bw, bh;
+int draw_score(tetris_context_t* ctx) {
+	double bw, bh;
+	char buffer[20];
 
     query_board_size(ctx, &bw, &bh);
 
@@ -486,7 +533,26 @@ int draw_score(tetris_context_t *ctx) {
 
     SDL_RenderCopyF(ctx->renderer, text_texture, NULL, &dst);
 
-    return 0;
+	/* Draw the score value. */
+	snprintf(buffer, 20, "%d", ctx->score);
+	int i;
+	for (i = strlen(buffer); i < 20; ++i)
+		buffer[i] = ' ';
+	buffer[i] = 0;
+
+	surface = TTF_RenderText_Solid(ctx->font, buffer, color);
+	text_texture = SDL_CreateTextureFromSurface(ctx->renderer, surface);
+
+	dst.h = 60;
+	dst.w = 700;
+	dst.x = bw + 20;
+	dst.y = 400;
+
+	SDL_RenderCopyF(ctx->renderer, text_texture, NULL, &dst);
+
+	SDL_FreeSurface(surface);
+	SDL_DestroyTexture(text_texture);
+	return 0;
 }
 
 int game_draw(tetris_context_t *ctx) {
@@ -526,7 +592,20 @@ void game_update_title(tetris_context_t *ctx) {
 int game_run(tetris_context_t *ctx, game_loop_fn_t game_update) {
     int status_code, quit = 0;
 
-    const int target_ticks = (1000 / ctx->target_framerate);
+	/* This inter-frame timer is a tad more accurate. */
+	if (ctx->last_time == -1)
+		ctx->last_time = SDL_GetTicks();
+	else
+	{
+		uint64_t curr  = SDL_GetTicks();
+		uint64_t delta = curr - ctx->last_time;
+
+		ctx->last_time = curr;
+		ctx->last_delta_time = (double)delta / 1000.0;
+	}
+
+	const int target_ticks = (1000 / ctx->target_framerate);
+
 
     game_loop_fn_t game_loop_functions[] = {game_collect_events, game_update, game_draw};
 

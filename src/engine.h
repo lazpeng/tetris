@@ -12,6 +12,18 @@
 #define DARK_AMOUNT (0.25)
 #define FONT_NAME ("font.ttf")
 
+#define SCORE_BASE_SINGLE 10	/* Base score for clearing a single row.		*/
+#define SCORE_BASE_DOUBLE 20	/* Base score for clearing two rows.			*/
+#define SCORE_BASE_TRIPLE 40	/* Base score for clearing three rows.			*/
+#define SCORE_BASE_TETRIS 80	/* Base score for clearing four our more rows.	*/
+
+#define FALL_TIME_SECONDS_BEG 0.50	/* Fall time for a piece at early game.	*/
+#define FALL_TIME_SECONDS_END 0.20	/* Fall time for a piece at late game.	*/
+/* From no score to this ammount of score, the fall time will be interpolated
+ * between the beggining and ending values. For scores larger than this number,
+ * the fall time for a piece will be fixed at the ending value. */
+#define FALL_TIME_SCORE_RANGE 2000
+
 typedef struct {
     int width, height;
     int *data;
@@ -74,16 +86,21 @@ typedef struct {
 } tetris_stats_t;
 
 typedef struct {
-    int w_height, w_width;
-    SDL_Window *window;
-    SDL_Renderer *renderer;
-    int target_framerate;
-    tetris_event_t event_stack[EVENT_STACK_SIZE];
-    int event_stack_top;
-    tetris_board_t board;
-    double last_frame_duration;
-    tetris_stats_t stats;
-    TTF_Font *font;
+	int w_height, w_width;
+	SDL_Window* window;
+	SDL_Renderer* renderer;
+	int target_framerate;
+	tetris_state_t game_state;
+	tetris_event_t event_stack[EVENT_STACK_SIZE];
+	int event_stack_top;
+	tetris_board_t board;
+	double last_frame_duration;
+	double last_delta_time;
+	uint64_t last_time;
+	double fall_timer;
+	unsigned int score;
+  tetris_stats_t stats;
+	TTF_Font* font;
 } tetris_context_t;
 
 typedef int (*game_loop_fn_t)(tetris_context_t *);
@@ -102,6 +119,8 @@ int set_draw_color(SDL_Renderer *renderer, uint32_t color);
 int darken_color(uint32_t color, double amount);
 
 int game_draw(tetris_context_t *ctx);
+
+double game_get_piece_fall_time(tetris_context_t* ctx);
 
 int board_get_cell(const tetris_board_t *board, int x, int y);
 
