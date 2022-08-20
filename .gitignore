@@ -13,3 +13,10 @@ cmake-build-debug/
 *.so
 *.dylib
 *.ttf
+.DS_Store
+CMakeFiles/
+CMakeScripts/
+build/
+cmake_install.cmake
+CMakeCache.txt
+*.xcodeproj/
