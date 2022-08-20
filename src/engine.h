@@ -1,16 +1,27 @@
 #pragma once
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #define EVENT_STACK_SIZE (128)
-#define W_WIDTH_DEFAULT (1280)
-#define W_HEIGHT_DEFAULT (720)
+#define W_WIDTH_DEFAULT (900)
+#define W_HEIGHT_DEFAULT (600)
 #define FRAMERATE_DEFAULT (60)
 #define BOARD_ROWS (22)
 #define BOARD_COLUMNS (12)
 #define BOARD_SIZE (BOARD_ROWS * BOARD_COLUMNS)
 #define DARK_AMOUNT (0.25)
-#define FONT_NAME ("font.ttf")
+
+#ifdef __APPLE__
+# define FONT_LOCATION "/System/Library/Fonts/"
+#define FONT_NAME "Monaco.ttf"
+#elif defined(WIN32) || defined(_WIN32)
+# define FONT_LOCATION "C:\\Windows\\Fonts\\"
+#define FONT_NAME "Consolas.ttf"
+#else
+# define FONT_LOCATION "/usr/share/fonts/"
+#define FONT_NAME "Consolas.ttf"
+#endif
 
 #define SCORE_BASE_SINGLE 10	/* Base score for clearing a single row.		*/
 #define SCORE_BASE_DOUBLE 20	/* Base score for clearing two rows.			*/
@@ -34,6 +45,7 @@ extern int g_tetris_colors[];
 
 typedef struct SDL_Window SDL_Window;
 typedef struct SDL_Renderer SDL_Renderer;
+typedef struct SDL_Texture SDL_Texture;
 typedef struct _TTF_Font TTF_Font;
 
 typedef enum {
@@ -89,6 +101,7 @@ typedef struct {
 	int w_height, w_width;
 	SDL_Window* window;
 	SDL_Renderer* renderer;
+    SDL_Texture* score_texture;
 	int target_framerate;
 	tetris_event_t event_stack[EVENT_STACK_SIZE];
 	int event_stack_top;
@@ -100,6 +113,7 @@ typedef struct {
 	unsigned int score;
 	tetris_stats_t stats;
 	TTF_Font* font;
+    bool paused;
 } tetris_context_t;
 
 typedef int (*game_loop_fn_t)(tetris_context_t *);

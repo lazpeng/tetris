@@ -6,8 +6,8 @@
 #include <time.h>
 #include <stdint.h>
 
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_ttf.h>
+#include <SDL.h>
+#include <SDL_ttf.h>
 
 int g_tetris_colors[] = {0x21d5db, 0xe8e225, 0xd10804, 0xce04d1, 0x333333, 0x777777};
 
@@ -51,6 +51,9 @@ tetris_shape_info_t g_tetris_shape_table[] =
         };
 
 int random_number(int upper_limit) {
+#ifdef __APPLE__
+    return random() % upper_limit;
+#endif
     srand(time(NULL));
 
     return rand() % upper_limit;
@@ -88,7 +91,7 @@ void board_initialize(tetris_board_t *board) {
     for (i = 0; i < BOARD_ROWS; ++i) {
         int j;
         for (j = 0; j < BOARD_COLUMNS; ++j) {
-            if (j > 0 && j < BOARD_COLUMNS - 1 && i > 0) {
+            if (j > 0 && j < BOARD_COLUMNS - 1 && i > 0 && i < BOARD_ROWS - 1) {
                 board->cells[i * BOARD_COLUMNS + j] = g_tetris_colors[COLOR_NONE];
             } else {
                 board->cells[i * BOARD_COLUMNS + j] = g_tetris_colors[COLOR_MARGIN];
@@ -167,6 +170,14 @@ void context_reset(tetris_context_t *ctx) {
     board_initialize(&ctx->board);
 }
 
+void game_update_title(tetris_context_t *ctx) {
+    static char buffer[1024];
+    *buffer = 0;
+    
+    snprintf(buffer, sizeof(buffer), "Not Tetris - %dx%d", ctx->w_width, ctx->w_height);
+    SDL_SetWindowTitle(ctx->window, buffer);
+}
+
 tetris_context_t *context_create(void) {
     puts("Initializing SDL2...");
 
@@ -216,7 +227,6 @@ tetris_context_t *context_create(void) {
         }
     }
 
-
 	ctx->target_framerate = FRAMERATE_DEFAULT;
 	ctx->event_stack_top = 0;
 	ctx->last_frame_duration = 0;
@@ -230,12 +240,14 @@ tetris_context_t *context_create(void) {
 
     context_reset(ctx);
 
-    ctx->font = TTF_OpenFont(FONT_NAME, 24);
+    ctx->font = TTF_OpenFont(FONT_LOCATION FONT_NAME, 24);
 
     if (ctx->font == NULL) {
         puts(TTF_GetError());
-        puts("Failed to load font. START:DASH lyrics will not be available during gameplay");
+        puts("Failed to load font. Score will not be available during gameplay");
     }
+    
+    game_update_title(ctx);
 
     return ctx;
 }
@@ -245,6 +257,10 @@ void context_destroy(tetris_context_t *ctx) {
     SDL_DestroyWindow(ctx->window);
 
     board_destroy(&ctx->board);
+    
+    if (ctx->font != NULL) {
+        TTF_CloseFont(ctx->font);
+    }
 
     free(ctx);
 
@@ -433,7 +449,7 @@ void board_check_for_clears(tetris_context_t *ctx) {
     int row;
 
 	clears = 0;
-    for(row = BOARD_ROWS - 1; row >= 1; --row) {
+    for(row = BOARD_ROWS - 2; row >= 1; --row) {
         if(!row_has_empty_cell(&ctx->board, row)) {
             clear_board_row(&ctx->board, row);
             move_cells_above_line(&ctx->board, row);
@@ -450,8 +466,7 @@ void board_check_for_clears(tetris_context_t *ctx) {
 		added = 0;
 		fall_time = game_get_piece_fall_time(ctx);
 
-		switch (clears)
-		{
+		switch (clears) {
 		case 1: added = SCORE_BASE_SINGLE / fall_time; break;
 		case 2: added = SCORE_BASE_DOUBLE / fall_time; break;
 		case 3: added = SCORE_BASE_TRIPLE / fall_time; break;
@@ -462,94 +477,58 @@ void board_check_for_clears(tetris_context_t *ctx) {
 		}
 
 		ctx->score += (unsigned int) round(added);
+        
+        if (ctx->score_texture != NULL) {
+            SDL_DestroyTexture(ctx->score_texture);
+        }
 	}
 }
 
-int draw_score(tetris_context_t* ctx) {
-	double bw, bh;
+static SDL_Texture* create_text_texture(tetris_context_t* ctx, const char * text, SDL_Color color) {
+    static SDL_Color bg = { 0, 0, 0 };
+    SDL_Surface *surface = TTF_RenderText_LCD(ctx->font, text, color, bg);
+    SDL_Texture *texture = SDL_CreateTextureFromSurface(ctx->renderer, surface);
+    
+    SDL_FreeSurface(surface);
+    return texture;
+}
 
-    query_board_size(ctx, &bw, &bh);
-
+/**
+  Draw a text line on the specified row
+  Rows are on a fixed x position relative to the board
+ */
+int draw_text (tetris_context_t *ctx, SDL_Texture* texture, int row) {
     if (ctx->font == NULL) {
         return 0;
     }
+    
+    double bw, bh;
+    query_board_size(ctx, &bw, &bh);
+    
+    int tw, th;
+    SDL_QueryTexture(texture, NULL, NULL, &tw, &th);
+    
+    SDL_Rect dest;
+    dest.x = bw * 1.15;
+    dest.y = 20 + (th + 10) * row;
+    dest.w = tw;
+    dest.h = th;
+    
+    SDL_RenderCopy(ctx->renderer, texture, NULL, &dest);
+}
 
+int draw_score(tetris_context_t* ctx) {
     SDL_Color color = {255, 255, 255};
+    
+    static char buffer[256];
+    if (ctx->score_texture == NULL) {
+        // Draw the score value.
+        snprintf(buffer, sizeof buffer, "Score: %d", ctx->score);
+        ctx->score_texture = create_text_texture(ctx, buffer, color);
+    }
 
-    SDL_Surface *surface = TTF_RenderText_Solid(ctx->font, "I SAAAAAAAAAAY", color);
+    draw_text(ctx, ctx->score_texture, 5);
 
-    SDL_Texture *text_texture = SDL_CreateTextureFromSurface(ctx->renderer, surface);
-
-    SDL_FRect dst;
-    dst.h = 60;
-    dst.w = 700;
-    dst.x = bw + 20;
-    dst.y = 10;
-
-    SDL_RenderCopyF(ctx->renderer, text_texture, NULL, &dst);
-
-    SDL_FreeSurface(surface);
-    SDL_DestroyTexture(text_texture);
-
-    surface = TTF_RenderText_Solid(ctx->font, "HEY            ", color);
-
-    text_texture = SDL_CreateTextureFromSurface(ctx->renderer, surface);
-
-    dst.h = 60;
-    dst.w = 700;
-    dst.x = bw + 20;
-    dst.y = 70;
-
-    SDL_RenderCopyF(ctx->renderer, text_texture, NULL, &dst);
-
-    SDL_FreeSurface(surface);
-    SDL_DestroyTexture(text_texture);
-
-    surface = TTF_RenderText_Solid(ctx->font, "HEY              ", color);
-
-    text_texture = SDL_CreateTextureFromSurface(ctx->renderer, surface);
-
-    dst.h = 60;
-    dst.w = 700;
-    dst.x = bw + 20;
-    dst.y = 130;
-
-    SDL_RenderCopyF(ctx->renderer, text_texture, NULL, &dst);
-
-    SDL_FreeSurface(surface);
-    SDL_DestroyTexture(text_texture);
-
-    surface = TTF_RenderText_Solid(ctx->font, "HEY START DASH        ", color);
-
-    text_texture = SDL_CreateTextureFromSurface(ctx->renderer, surface);
-
-    dst.h = 60;
-    dst.w = 700;
-    dst.x = bw + 20;
-    dst.y = 200;
-
-    SDL_RenderCopyF(ctx->renderer, text_texture, NULL, &dst);
-
-	SDL_FreeSurface(surface);
-	SDL_DestroyTexture(text_texture);
-
-	static char buffer[256];
-
-	/* Draw the score value. */
-	snprintf(buffer, sizeof buffer, "%d", ctx->score);
-
-	surface = TTF_RenderText_Solid(ctx->font, buffer, color);
-	text_texture = SDL_CreateTextureFromSurface(ctx->renderer, surface);
-
-	dst.h = 60;
-	dst.w = 75 * strlen(buffer);
-	dst.x = bw + 20;
-	dst.y = 400;
-
-	SDL_RenderCopyF(ctx->renderer, text_texture, NULL, &dst);
-
-	SDL_FreeSurface(surface);
-	SDL_DestroyTexture(text_texture);
 	return 0;
 }
 
@@ -577,16 +556,6 @@ int game_draw(tetris_context_t *ctx) {
     return status_code;
 }
 
-void game_update_title(tetris_context_t *ctx) {
-    static char buffer[1024];
-    *buffer = 0;
-
-    double framerate = 1000.0 / (ctx->last_frame_duration * 1000);
-
-    snprintf(buffer, sizeof(buffer), "Not Tetris - %dx%d - %.2f FPS", ctx->w_width, ctx->w_height, framerate);
-    SDL_SetWindowTitle(ctx->window, buffer);
-}
-
 int game_run(tetris_context_t *ctx, game_loop_fn_t game_update) {
     int status_code, quit = 0;
 
@@ -603,7 +572,6 @@ int game_run(tetris_context_t *ctx, game_loop_fn_t game_update) {
 	}
 
 	const int target_ticks = (1000 / ctx->target_framerate);
-
 
     game_loop_fn_t game_loop_functions[] = {game_collect_events, game_update, game_draw};
 
@@ -627,8 +595,6 @@ int game_run(tetris_context_t *ctx, game_loop_fn_t game_update) {
     elapsed = SDL_GetTicks() - frame_ticks;
 
     ctx->last_frame_duration = elapsed / 1000.0;
-
-    game_update_title(ctx);
 
     return quit;
 }

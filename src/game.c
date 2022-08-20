@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include <SDL2/SDL.h>
+#include <SDL.h>
 
 #define AXIS_X (0)
 #define AXIS_Y (1)
@@ -155,6 +155,9 @@ static int game_check_input(tetris_context_t *ctx) {
 				case SDLK_r:
 					game_rotate_piece(&ctx->board);
 					break;
+                case SDLK_ESCAPE:
+                    ctx->paused = !ctx->paused;
+                    break;
 				default:
 					break;
 			}
@@ -188,26 +191,28 @@ int game_update(tetris_context_t *ctx) {
 	int status_code;
     double fall_time;
     
-    ctx->fall_timer += ctx->last_delta_time;
-    fall_time = game_get_piece_fall_time(ctx);
-    while(ctx->fall_timer > fall_time)
-    {
-        game_move_piece(ctx, AXIS_Y, 1);
-        ctx->fall_timer -= fall_time;
+    if (!ctx->paused) {
+        ctx->fall_timer += ctx->last_delta_time;
+        fall_time = game_get_piece_fall_time(ctx);
+        while(ctx->fall_timer > fall_time)
+        {
+            game_move_piece(ctx, AXIS_Y, 1);
+            ctx->fall_timer -= fall_time;
+        }
+
+        if (ctx->board.current_piece == NULL || collides_y(&ctx->board, 1)) {
+            board_fixate_current_piece(&ctx->board);
+            board_check_for_clears(ctx);
+            board_spawn_piece(ctx);
+
+            // If after spawning a piece it immediately overlap another piece (in the first row), it's a loss
+            // Unfortunately this is the only loss condition in the game
+
+            if (collides_y(&ctx->board, 0) || collides_x(&ctx->board, 0)) {
+                game_reset(ctx);
+            }
+        }
     }
-
-	if (ctx->board.current_piece == NULL || collides_y(&ctx->board, 1)) {
-		board_fixate_current_piece(&ctx->board);
-		board_check_for_clears(ctx);
-		board_spawn_piece(ctx);
-
-		// If after spawning a piece it immediately overlap another piece (in the first row), it's a loss
-		// Unfortunately this is the only loss condition in the game
-
-		if (collides_y(&ctx->board, 0) || collides_x(&ctx->board, 0)) {
-			game_reset(ctx);
-		}
-	}
 
 	if ((status_code = game_check_input(ctx)) != 0) {
 		return status_code;
