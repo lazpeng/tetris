@@ -1,0 +1,9 @@
+{
+    "name": "tetris",
+    "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+    "version": "0.1.0",
+    "dependencies": [
+        "sdl2",
+        "sdl2-ttf"
+    ]
+}

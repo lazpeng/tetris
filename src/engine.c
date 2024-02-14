@@ -138,6 +138,8 @@ void board_spawn_piece(tetris_context_t *ctx) {
     }
 
     tetris_piece_t *piece = calloc(1, sizeof(*piece));
+    if (piece == NULL)
+        return;
 
     piece->color = g_tetris_colors[random_number(COLOR_NONE)];
     piece->shape = random_number(SHAPE_END);
@@ -151,6 +153,8 @@ void board_spawn_piece(tetris_context_t *ctx) {
     const int size = piece->w * piece->h * sizeof(int);
 
     piece->draw_data = calloc(1, size);
+    if (piece->draw_data == NULL)
+        return;
 
     memcpy(piece->draw_data, info.data, size);
 
@@ -199,6 +203,8 @@ tetris_context_t *context_create(void) {
     puts("Initializing context...");
 
     tetris_context_t *ctx = calloc(1, sizeof(*ctx));
+    if (ctx == NULL)
+        return NULL;
 
     ctx->w_width = W_WIDTH_DEFAULT;
     ctx->w_height = W_HEIGHT_DEFAULT;
@@ -515,6 +521,7 @@ int draw_text (tetris_context_t *ctx, SDL_Texture* texture, int row) {
     dest.h = th;
     
     SDL_RenderCopy(ctx->renderer, texture, NULL, &dest);
+    return 0;
 }
 
 int draw_score(tetris_context_t* ctx) {

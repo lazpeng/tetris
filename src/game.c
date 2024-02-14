@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include <SDL.h>
+#include <SDL2/SDL.h>
 
 #define AXIS_X (0)
 #define AXIS_Y (1)
